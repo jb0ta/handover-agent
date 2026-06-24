@@ -1,6 +1,6 @@
 # Handover Agent: Skill-Driven Micro-Engagement Workflow
 
-**v0.1.0** · Implementation of agentic freelancing micro-engagements.
+**v0.1.1** · Implementation of agentic freelancing micro-engagements.
 
 This is a **working vertical slice**, not production. See [What's Here](#whats-here) and [What's Coming](#whats-coming).
 
@@ -10,7 +10,7 @@ This is a **working vertical slice**, not production. See [What's Here](#whats-h
 
 A **client-side handover agent** that:
 
-1. **Loads a freelancer skill** (YAML/JSON) — "How I work, what I need, my questions"
+1. **Loads a freelancer skill** (JSON today; YAML planned) — "How I work, what I need, my questions"
 2. **Runs adaptive intake** — asks skill-driven questions, detects missing info
 3. **Builds a scoped brief** — collects into a structured, schema-validated brief
 4. **Creates a vault manifest** — materials with provenance, permissions, expiry, audit log
@@ -24,7 +24,7 @@ A **client-side handover agent** that:
 ## Core Model
 
 ```
-Freelancer Skill (YAML)
+Freelancer Skill (JSON)
     ↓
 Client Need + Materials
     ↓
@@ -84,7 +84,8 @@ Billing: Productive Time Only
 │   └── example-skill.yaml           # Workflow review skill
 ├── examples/                         # Example outputs
 │   ├── example-brief.json           # Sample generated brief
-│   └── example-vault-manifest.json  # Sample vault
+│   ├── example-vault-manifest.json  # Sample vault
+│   └── example-return-handover.json # Sample return handover
 ├── src/
 │   ├── intake/
 │   │   └── Intake.ts                # Core intake logic
@@ -92,8 +93,8 @@ Billing: Productive Time Only
 │   ├── vault/                       # (Planned: vault creation/access control)
 │   ├── approval/                    # (Planned: approval gate)
 │   └── main.ts                      # Demo runner
-├── tests/                            # (Planned: test suite)
-├── docs/                             # (Planned: architecture, threat model)
+├── tests/                            # Test suite (intake + verification)
+├── docs/                             # architecture.md, threat-model.md
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -175,13 +176,9 @@ completion_conditions:
   - "Client approved the return handover"
 ```
 
-Then run:
+> Note: the loader parses **JSON** today; provide the equivalent as a `.json` file. YAML parsing is on the roadmap.
 
-```bash
-node dist/main.js --skill skills/my-skill.yaml --response my-response.json
-```
-
-(CLI not yet implemented; see [What's Coming](#whats-coming).)
+Today the demo runs a built-in example via `npm start`. A CLI to pass an arbitrary skill + response file is on the roadmap (see [What's Coming](#whats-coming)).
 
 ---
 
@@ -199,7 +196,7 @@ Schemas enforce:
 - Enums for fixed choices
 - Patterns for IDs, formats, URLs
 - Min/max lengths
-- Audit trail immutability (audit log is append-only)
+- Append-only audit-log structure *by design*; runtime persistence and tamper-evidence are not yet built (see docs/threat-model.md, T6)
 
 ---
 
@@ -210,16 +207,16 @@ Every collected item has:
 - **Classification:** public, internal, confidential, credentials
 - **Access restrictions:** per-item granularity (freelancer-only, client-only, etc.)
 - **Expiry:** automatic revocation at engagement end (default 14 days)
-- **Audit trail:** append-only log of all access, changes, approvals
+- **Audit trail:** append-only log *by design* of access, changes, approvals (runtime persistence/tamper-evidence not yet built)
 
-**Threat model** (in planning):
+**Threat model** (see [docs/threat-model.md](docs/threat-model.md)):
 - Untrusted client input (prompt injection in uploaded files) — mitigated by input trust boundary
 - Over-collection of sensitive data — mitigated by "collect only what the skill names" rule
 - Vault data outliving engagement — mitigated by auto-expiry + revocation
 - Agent taking external action without approval — mitigated by hard approval gate
 - Secrets leakage — mitigated by least-privilege scoping + file-based secrets (no plaintext in JSON)
 
-See `docs/threat-model.md` (planned).
+See [docs/threat-model.md](docs/threat-model.md) for the full model.
 
 ---
 
@@ -277,7 +274,7 @@ npm run dev       # TypeScript directly (ts-node)
 npm start         # Compiled JavaScript
 ```
 
-### Testing (Planned)
+### Testing
 
 ```bash
 npm test          # Run jest
@@ -321,12 +318,12 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 
 ## Status
 
-**v0.1.0 — MVP / Proof of Concept**
+**v0.1.1 — MVP / Proof of Concept**
 
 - ✅ Model defined (schemas)
 - ✅ Core intake logic working
 - ✅ Example skill + outputs + return handover
-- ✅ Test suite (13 passing, incl. safety invariant)
+- ✅ Test suite (18 passing, incl. safety invariant)
 - ✅ Architecture + threat-model docs
 - ⚠️ Not production-hardened
 - ❌ No approval UI yet (invariant enforced in code, but no interface)

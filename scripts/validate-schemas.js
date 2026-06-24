@@ -54,6 +54,7 @@ const examplesDir = path.join(ROOT, "examples");
 const exampleChecks = [
   ["example-brief.json", "brief.schema.json"],
   ["example-vault-manifest.json", "vault-manifest.schema.json"],
+  ["example-return-handover.json", "return-handover.schema.json"],
 ];
 for (const [file, schemaName] of exampleChecks) {
   const p = path.join(examplesDir, file);

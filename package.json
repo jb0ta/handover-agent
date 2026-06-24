@@ -1,6 +1,6 @@
 {
   "name": "handover-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A client-side handover agent implementing skill-as-code, scoped vault handover, and micro-engagement workflow",
   "main": "dist/main.js",
   "scripts": {

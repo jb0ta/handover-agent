@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] — 2026-06-24
+
+### Fixed
+- **Audit integrity (D1):** the vault manifest's audit log referenced placeholder item IDs instead of the real generated IDs. Audit entries now reference the actual items. Regression test added.
+- **Safety contract (D2):** `approval_status` is now `required` in the brief schema, so the safety-critical approval field can no longer be omitted from a valid brief. Regression test added.
+- **Validator coverage (D3):** `validate:schemas` now also checks `example-return-handover.json`.
+
+### Added
+- `tests/verification.test.ts` — 5 regression/critical tests (suite is now 18 passing).
+- ESLint configuration (`.eslintrc.json`); `npm run lint` now runs clean with no `any` in `src/`.
+
+### Changed
+- Type-safety: replaced loose `ClientResponse` index signature and removed all explicit `any` from `src/`.
+- Documentation: corrected audit-log claims to match the threat model (append-only by design, not yet runtime-enforced); removed stale "(Planned)" labels for `tests/`/`docs/`; clarified that skills are parsed as JSON today (YAML is roadmap); replaced the non-working CLI example.
+
+---
+
 ## [0.1.0] — 2026-06-24
 
 ### Initial Release
@@ -111,7 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 2. **TypeScript strict mode:** All code type-checked and validated. No implicit any.
 3. **Per-engagement vault scope:** Default scope is per-engagement. Expires automatically in 14 days.
 4. **Human approval gates:** Nothing external happens without explicit human approval (schema enforces this).
-5. **Append-only audit logs:** Audit trail cannot be modified, only appended to. Tamper-evident by design.
+5. **Append-only audit logs (by design):** the audit-log structure is append-only by contract; runtime persistence and tamper-evidence are not yet built (see threat model T6).
 6. **Least-privilege access:** Vault items have granular restrictions (freelancer-only, client-only, etc.). Expiry is default.
 7. **Provenance on every item:** Where it came from, when, how, who touched it. Everything traceable.
 

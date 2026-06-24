@@ -1,4 +1,4 @@
-import Intake from "./intake/Intake";
+import Intake, { ClientResponse } from "./intake/Intake";
 import * as fs from "fs";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from "uuid";
  * 5. Output for human approval
  */
 
-const EXAMPLE_CLIENT_RESPONSE = {
+const EXAMPLE_CLIENT_RESPONSE: ClientResponse = {
   client_name: "TechFlow Inc.",
   client_objective:
     "Make our main lead-capture workflow 30% faster and more reliable",
@@ -86,7 +86,7 @@ async function main() {
     console.log("📥 Running intake...\n");
     const result = await intake.runIntake(
       "./skills/example-skill.json",
-      EXAMPLE_CLIENT_RESPONSE as any
+      EXAMPLE_CLIENT_RESPONSE
     );
 
     console.log("\n" + "=".repeat(60));
@@ -128,6 +128,10 @@ async function main() {
     console.log("\n" + "=".repeat(60));
     console.log("\n🔒 Vault Manifest (concept):\n");
 
+    // Generate item IDs up front so the audit log can reference the real items.
+    const itemWorkflowId = `item-${uuidv4()}`;
+    const itemLogId = `item-${uuidv4()}`;
+
     const vaultManifest = {
       engagement_id: result.brief.engagement_id,
       brief_id: result.brief.brief_id,
@@ -139,7 +143,7 @@ async function main() {
       ).toISOString(), // 14 days
       items: [
         {
-          item_id: `item-${uuidv4()}`,
+          item_id: itemWorkflowId,
           name: "Lead workflow export",
           type: "file",
           path: "lead-workflow.json",
@@ -152,7 +156,7 @@ async function main() {
             "Contains workflow logic and API endpoints. Do not share externally.",
         },
         {
-          item_id: `item-${uuidv4()}`,
+          item_id: itemLogId,
           name: "Error log (last 7 days)",
           type: "file",
           path: "error-log.csv",
@@ -182,7 +186,7 @@ async function main() {
           actor: "agent_intake",
           action: "items_collected",
           details: "Client response materials added to vault",
-          item_ids: ["item-workflow", "item-logs"],
+          item_ids: [itemWorkflowId, itemLogId],
         },
       ],
       revocation_conditions: {

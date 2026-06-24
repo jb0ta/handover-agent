@@ -19,7 +19,8 @@
     "access_provided",
     "risks",
     "success_criteria",
-    "estimated_productive_time_minutes"
+    "estimated_productive_time_minutes",
+    "approval_status"
   ],
   "properties": {
     "brief_id": {

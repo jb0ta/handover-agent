@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import Ajv from "ajv";
+import Ajv, { ErrorObject } from "ajv";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -21,8 +21,37 @@ interface SkillDefinition {
   deliverables?: string[];
 }
 
-interface ClientResponse {
-  [key: string]: string | string[] | { [key: string]: any };
+export interface ResponseSourceMaterial {
+  name: string;
+  type: string;
+  location: string;
+  provenance: string;
+  collected_at?: string;
+}
+
+export interface ResponseAccessGrant {
+  system: string;
+  scope: string;
+  expires_at?: string;
+  security_note?: string;
+}
+
+export interface ClientResponse {
+  client_name?: string;
+  client_objective?: string;
+  current_situation?: string;
+  desired_result?: string;
+  scope?: string;
+  out_of_scope?: string[];
+  constraints?: string[];
+  stakeholders?: Array<{ name: string; role: string; approval_required?: boolean }>;
+  source_materials?: ResponseSourceMaterial[];
+  access_provided?: ResponseAccessGrant[];
+  risks?: string[];
+  open_questions?: string[];
+  success_criteria?: string[];
+  estimated_productive_time_minutes?: number;
+  notes?: string;
 }
 
 interface GeneratedBrief {
@@ -41,11 +70,13 @@ interface GeneratedBrief {
     type: string;
     location: string;
     provenance: string;
-    collected_at: string;
+    collected_at?: string;
   }>;
   access_provided: Array<{
     system: string;
     scope: string;
+    expires_at?: string;
+    security_note?: string;
   }>;
   risks: string[];
   open_questions: string[];
@@ -229,8 +260,8 @@ export class Intake {
         `Work within the scope of this ${skill.skill} skill`,
       out_of_scope: (response.out_of_scope as string[]) || [],
       constraints: (response.constraints as string[]) || [],
-      source_materials: (response.source_materials as any[]) || [],
-      access_provided: (response.access_provided as any[]) || [],
+      source_materials: response.source_materials || [],
+      access_provided: response.access_provided || [],
       risks: (response.risks as string[]) || [],
       open_questions: (response.open_questions as string[]) || [],
       success_criteria: (response.success_criteria as string[]) || [
@@ -251,9 +282,9 @@ export class Intake {
   /**
    * Validate brief against the brief schema
    */
-  validateBrief(brief: any): {
+  validateBrief(brief: unknown): {
     valid: boolean;
-    errors: any[];
+    errors: ErrorObject[];
   } {
     const schemaContent = fs.readFileSync(this.briefSchemaPath, "utf-8");
     const briefSchema = JSON.parse(schemaContent);
@@ -273,7 +304,7 @@ export class Intake {
   async runIntake(skillPath: string, clientResponse: ClientResponse): Promise<{
     skill: SkillDefinition;
     brief: GeneratedBrief;
-    validation: { valid: boolean; errors: any[] };
+    validation: { valid: boolean; errors: ErrorObject[] };
     validation_response: { valid: boolean; missing: string[]; warnings: string[] };
   }> {
     // Load skill

@@ -1,18 +1,18 @@
 {
-  "engagement_id": "engagement-a0ca3521-cdc4-4c98-b9db-a33180824c25",
-  "brief_id": "brief-2aec716a-ba8d-432d-bbc3-c54a8d0b2d2a",
-  "vault_path": "/engagements/engagement-a0ca3521-cdc4-4c98-b9db-a33180824c25/vault",
+  "engagement_id": "engagement-2d693cc8-3373-4276-86e3-396364e50ba5",
+  "brief_id": "brief-02fd0f6f-ce14-4a4c-b700-a7b8d762111c",
+  "vault_path": "/engagements/engagement-2d693cc8-3373-4276-86e3-396364e50ba5/vault",
   "scope": "per-engagement",
-  "created_at": "2026-06-23T23:40:31.938Z",
-  "expires_at": "2026-07-07T23:40:31.938Z",
+  "created_at": "2026-06-24T10:13:17.976Z",
+  "expires_at": "2026-07-08T10:13:17.976Z",
   "items": [
     {
-      "item_id": "item-2c4b2b8f-a772-4285-a061-830593f7dd68",
+      "item_id": "item-09f335ed-0d86-49db-a130-c9bc440ce801",
       "name": "Lead workflow export",
       "type": "file",
       "path": "lead-workflow.json",
       "provenance": "client_upload",
-      "collected_at": "2026-06-23T23:40:31.938Z",
+      "collected_at": "2026-06-24T10:13:17.976Z",
       "collection_method": "user_upload",
       "classification": "internal",
       "access_restrictions": [
@@ -21,12 +21,12 @@
       "notes": "Contains workflow logic and API endpoints. Do not share externally."
     },
     {
-      "item_id": "item-1103b933-8e8d-4f44-b34e-402b9c4de9a1",
+      "item_id": "item-2e7e20eb-feb1-4004-aab3-7363a49e6695",
       "name": "Error log (last 7 days)",
       "type": "file",
       "path": "error-log.csv",
       "provenance": "client_export",
-      "collected_at": "2026-06-23T23:40:31.938Z",
+      "collected_at": "2026-06-24T10:13:17.976Z",
       "collection_method": "user_upload",
       "classification": "confidential",
       "access_restrictions": [
@@ -42,25 +42,25 @@
   },
   "audit_log": [
     {
-      "timestamp": "2026-06-23T23:40:31.938Z",
+      "timestamp": "2026-06-24T10:13:17.976Z",
       "actor": "system",
       "action": "vault_created",
-      "details": "Vault created for engagement engagement-a0ca3521-cdc4-4c98-b9db-a33180824c25",
+      "details": "Vault created for engagement engagement-2d693cc8-3373-4276-86e3-396364e50ba5",
       "item_ids": []
     },
     {
-      "timestamp": "2026-06-23T23:40:31.938Z",
+      "timestamp": "2026-06-24T10:13:17.976Z",
       "actor": "agent_intake",
       "action": "items_collected",
       "details": "Client response materials added to vault",
       "item_ids": [
-        "item-workflow",
-        "item-logs"
+        "item-09f335ed-0d86-49db-a130-c9bc440ce801",
+        "item-2e7e20eb-feb1-4004-aab3-7363a49e6695"
       ]
     }
   ],
   "revocation_conditions": {
-    "automatic_expiry_utc": "2026-07-07T23:40:31.938Z",
+    "automatic_expiry_utc": "2026-07-08T10:13:17.976Z",
     "manual_revocation_by_client": true,
     "on_expiry_action": "lock_read_only",
     "retention_after_expiry": "90d"
@@ -68,7 +68,7 @@
   "approvals": [
     {
       "approver": "client",
-      "approved_at": "2026-06-23T23:40:31.938Z",
+      "approved_at": "2026-06-24T10:13:17.976Z",
       "approval_type": "vault_creation",
       "notes": "Client approved sharing materials with freelancer"
     }
