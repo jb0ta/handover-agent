@@ -1,10 +1,11 @@
 {
   "name": "handover-agent",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A client-side handover agent implementing skill-as-code, scoped vault handover, and micro-engagement workflow",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
+    "prestart": "npm run build",
     "start": "node dist/main.js",
     "dev": "ts-node src/main.ts",
     "test": "jest",

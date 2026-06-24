@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.2] — 2026-06-24
+
+### Fixed
+- **`npm start` from a clean clone (P1):** running `npm start` without a prior `npm run build` failed with `Cannot find module dist/main.js`, because `dist/` is git-ignored and no build step ran first. Added a `prestart` lifecycle hook so `npm start` always compiles first. A new user can now run `npm install && npm start` with no manual build step.
+
+### Changed
+- README Quick Start no longer requires a separate `npm run build` step.
+
+---
+
 ## [0.1.1] — 2026-06-24
 
 ### Fixed

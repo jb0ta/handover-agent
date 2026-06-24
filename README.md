@@ -1,6 +1,6 @@
 # Handover Agent: Skill-Driven Micro-Engagement Workflow
 
-**v0.1.1** · Implementation of agentic freelancing micro-engagements.
+**v0.1.2** · Implementation of agentic freelancing micro-engagements.
 
 This is a **working vertical slice**, not production. See [What's Here](#whats-here) and [What's Coming](#whats-coming).
 
@@ -119,10 +119,7 @@ cd handover-agent
 # Install
 npm install
 
-# Build TypeScript
-npm run build
-
-# Run the demo
+# Run the demo (builds automatically via the prestart hook)
 npm start
 ```
 
@@ -318,7 +315,7 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 
 ## Status
 
-**v0.1.1 — MVP / Proof of Concept**
+**v0.1.2 — MVP / Proof of Concept**
 
 - ✅ Model defined (schemas)
 - ✅ Core intake logic working
