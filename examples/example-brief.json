@@ -1,0 +1,57 @@
+{
+  "brief_id": "brief-2aec716a-ba8d-432d-bbc3-c54a8d0b2d2a",
+  "engagement_id": "engagement-a0ca3521-cdc4-4c98-b9db-a33180824c25",
+  "skill": "workflow-automation-review",
+  "created_at": "2026-06-23T23:40:31.929Z",
+  "client_objective": "Make our main lead-capture workflow 30% faster and more reliable",
+  "current_situation": "We run a webhook-triggered n8n workflow that collects form submissions, validates them, enriches with company data via API, and logs to Pipedrive. It works, but often times out on large batches and sometimes loses data.",
+  "desired_result": "A faster, more resilient workflow that can handle 500+ leads per day without timeouts or data loss. We want clear error handling and retry logic.",
+  "scope": "Review and fix the existing workflow, apply one key optimization, and document the changes.",
+  "out_of_scope": [
+    "Complete rewrite of the workflow",
+    "Integration with new platforms"
+  ],
+  "constraints": [
+    "No downtime during the fix (we need the workflow running)",
+    "Changes must be compatible with our existing Pipedrive setup"
+  ],
+  "source_materials": [
+    {
+      "name": "Lead workflow export",
+      "type": "file",
+      "location": "lead-workflow.json",
+      "provenance": "Client export from n8n",
+      "collected_at": "2026-06-23T23:40:31.891Z"
+    },
+    {
+      "name": "Error log (last 7 days)",
+      "type": "file",
+      "location": "error-log.csv",
+      "provenance": "Client export from n8n logs",
+      "collected_at": "2026-06-23T23:40:31.892Z"
+    }
+  ],
+  "access_provided": [
+    {
+      "system": "n8n",
+      "scope": "read-only access to the workflow and logs",
+      "expires_at": "2026-06-30T23:40:31.892Z"
+    }
+  ],
+  "risks": [
+    "The workflow handles sensitive lead data; changes must not compromise privacy",
+    "Any timeout during the fix could cause duplicate leads; needs careful testing"
+  ],
+  "open_questions": [
+    "Can we use a paid n8n node to improve performance, or must we stick to free nodes?",
+    "What's the acceptable data latency for lead logging?"
+  ],
+  "success_criteria": [
+    "Workflow can process 500+ leads without timeouts",
+    "Error rate < 0.5%",
+    "No data loss on any lead",
+    "Changes are documented with rollback plan"
+  ],
+  "estimated_productive_time_minutes": 120,
+  "approval_status": "pending_approval"
+}

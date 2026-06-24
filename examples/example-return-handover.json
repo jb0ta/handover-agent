@@ -1,0 +1,78 @@
+{
+  "return_id": "return-9f2c1a44-7b1e-4d3a-bf21-0c8e5a9d6f10",
+  "engagement_id": "engagement-10889033-8b6d-4691-87ea-f8cf3b188bd9",
+  "brief_id": "brief-b516e1b9-3e09-4b74-8713-68f8a618a1b7",
+  "freelancer": "jose-handover-demo",
+  "completed_at": "2026-06-24T15:42:00.000Z",
+  "productive_time_minutes": 105,
+  "deliverables": [
+    {
+      "name": "Workflow review findings",
+      "type": "summary",
+      "location": "deliverables/findings.md",
+      "format": "Markdown",
+      "description": "Annotated review of the lead-capture workflow with 6 findings, each tied to a specific node or log entry."
+    },
+    {
+      "name": "Prioritised fix list",
+      "type": "list",
+      "location": "deliverables/fix-list.md",
+      "format": "Markdown",
+      "description": "6 fixes ranked by impact/effort. The batching timeout and the missing retry on the enrichment API are the two high-impact items."
+    },
+    {
+      "name": "Applied quick-win: enrichment API retry",
+      "type": "file",
+      "location": "deliverables/lead-workflow-patched.json",
+      "format": "JSON",
+      "description": "Adds a 3-attempt exponential backoff to the enrichment HTTP node. This is the single change most likely to stop the intermittent data loss."
+    }
+  ],
+  "assumptions_made": [
+    "The enrichment API is the main source of timeouts (supported by the error log: 71% of errors are on that node).",
+    "Free n8n nodes only, since the open question about paid nodes was unresolved at start of work.",
+    "Pipedrive field mapping must stay unchanged (per the constraint)."
+  ],
+  "changes_made": [
+    {
+      "description": "Added exponential backoff (3 attempts) to the enrichment HTTP Request node.",
+      "impact": "Should eliminate the majority of intermittent data loss from transient API failures.",
+      "reversible": true,
+      "tested": true,
+      "test_results": "Ran the patched workflow against a 50-lead sample with a simulated 20% API failure rate; 0 leads lost vs 9 lost on the original."
+    }
+  ],
+  "tests_performed": [
+    {
+      "description": "50-lead sample run with simulated API failures, original vs patched.",
+      "passed": true,
+      "notes": "Original lost 9/50; patched lost 0/50. Latency increased ~1.2s per retried lead, within acceptable range."
+    },
+    {
+      "description": "Confirmed Pipedrive field mapping unchanged after patch.",
+      "passed": true,
+      "notes": "Diffed the Pipedrive node config; no changes."
+    }
+  ],
+  "unresolved_issues": [
+    {
+      "issue": "Batch-size timeout on runs above ~300 leads.",
+      "reason": "Fixing properly needs a redesign to chunk batches, which is beyond a 2-hour review scope.",
+      "blocking": false,
+      "recommended_next_action": "Scope a follow-up engagement to add batch chunking; estimated 2–3 hours."
+    }
+  ],
+  "recommendations": [
+    "Apply the included patch first; it's the lowest-risk, highest-impact change.",
+    "Resolve the paid-node question — a single queue node would solve the batch timeout cleanly.",
+    "Add a dead-letter capture so any future lost lead is recoverable rather than silently dropped."
+  ],
+  "quality_checklist": {
+    "matches_skill_criteria": true,
+    "deliverables_complete": true,
+    "all_assumptions_documented": true,
+    "changes_are_traceable": true
+  },
+  "status": "submitted",
+  "notes": "Productive time was 105 minutes of the estimated 120. Billing reflects actual productive time."
+}

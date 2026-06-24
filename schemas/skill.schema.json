@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://handover-agent.local/schemas/skill.v0.1.0.json",
+  "title": "Freelancer Skill Definition",
+  "description": "How a freelancer works, what they need, and the questions they ask. Drives the adaptive intake and the structure of the client brief.",
+  "type": "object",
+  "required": ["skill", "version", "how_i_work", "what_i_need", "questions_i_ask", "deliverables", "completion_conditions"],
+  "properties": {
+    "skill": {
+      "type": "string",
+      "description": "Short name of this skill, kebab-case. Example: 'workflow-automation-review'.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of this skill definition.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Who created this skill (name or org).",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "description": "One sentence: what this skill does.",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "how_i_work": {
+      "type": "array",
+      "description": "List of statements about how you work and your approach.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "examples": [
+        "I review one workflow end-to-end and return concrete, prioritised fixes.",
+        "I work in focused 2-hour blocks; billing is for productive time only."
+      ]
+    },
+    "what_i_need": {
+      "type": "array",
+      "description": "What inputs or materials are required to do the work.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 200
+      },
+      "examples": [
+        "workflow export (JSON or screenshots)",
+        "one sentence: what 'good' looks like",
+        "read-only access to the relevant system"
+      ]
+    },
+    "questions_i_ask": {
+      "type": "array",
+      "description": "Questions the intake agent should ask to understand the client's need.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "examples": [
+        "What is the single outcome you want improved?",
+        "Where does it currently break or slow down?"
+      ]
+    },
+    "accepted_file_types": {
+      "type": "array",
+      "description": "File types accepted. Examples: '.json', '.md', '.csv'.",
+      "items": {
+        "type": "string",
+        "pattern": "^\\.[a-z0-9]+$"
+      },
+      "examples": [".json", ".md", ".png", ".csv"]
+    },
+    "exclusions": {
+      "type": "array",
+      "description": "What you will NOT work with. Security and scope boundaries.",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "examples": [
+        "No production credentials. Read-only, scoped access only.",
+        "Do not send PII unless strictly required for the task."
+      ]
+    },
+    "deliverables": {
+      "type": "array",
+      "description": "What the client receives at the end.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 200
+      },
+      "examples": [
+        "annotated findings with actionable priorities",
+        "one quick-win fix applied and tested"
+      ]
+    },
+    "quality_criteria": {
+      "type": "array",
+      "description": "How quality is defined and verified.",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "examples": [
+        "every claim references a source artifact",
+        "every change includes a brief explanation"
+      ]
+    },
+    "security_requirements": {
+      "type": "object",
+      "description": "Security and confidentiality expectations.",
+      "properties": {
+        "vault_scope": {
+          "type": "string",
+          "enum": ["per-engagement", "per-project", "organizational"],
+          "description": "How widely the vault contents can be used."
+        },
+        "data_retention": {
+          "type": "string",
+          "description": "How long vault contents are retained. Examples: '14d_then_revoke', 'manual_deletion_only'.",
+          "minLength": 5
+        },
+        "approval_required_before_external_action": {
+          "type": "boolean",
+          "description": "True = nothing external happens without human approval."
+        },
+        "no_production_credentials": {
+          "type": "boolean",
+          "description": "True = reject any production passwords, API keys, etc."
+        },
+        "no_pii_unless_required": {
+          "type": "boolean",
+          "description": "True = only collect PII if absolutely necessary for the work."
+        }
+      }
+    },
+    "completion_conditions": {
+      "type": "array",
+      "description": "How you know the work is done.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 200
+      },
+      "examples": [
+        "findings delivered and reviewed",
+        "human approval received on return handover"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,62 @@
+skill: workflow-automation-review
+version: 0.1.0
+provider: jose-handover-demo
+description: "Comprehensive review of an automation workflow, returning prioritised fixes and one quick-win fix applied."
+
+how_i_work:
+  - "I review one automation workflow (n8n, make.com, Zapier, etc.) end-to-end and identify bottlenecks, inefficiencies, and risks."
+  - "I return a prioritised list of fixes, explanations for why each matters, and a quick-win fix applied as proof."
+  - "I work in focused 2-hour blocks; billing is for productive time only."
+  - "Every claim references a source artifact (the workflow node, a log, a screenshot)."
+
+what_i_need:
+  - "A workflow export (JSON for n8n; similar for other platforms) OR a detailed screenshot walkthrough"
+  - "One sentence: what 'working well' would look like for this workflow"
+  - "Read-only access to the relevant platform (if I need to see live data or test a fix)"
+
+questions_i_ask:
+  - "What is the single outcome or metric you want this workflow to improve?"
+  - "Where does it currently break or slow down?"
+  - "What must NOT change about how it currently works?"
+  - "Are there any privacy/security constraints I should know about?"
+
+accepted_file_types:
+  - .json
+  - .md
+  - .png
+  - .csv
+
+exclusions:
+  - "No production credentials. I work with read-only, scoped access only."
+  - "Do not send PII or customer data unless absolutely required for the diagnosis."
+  - "This is a review/advisory engagement, not a full implementation. I won't build new workflows from scratch."
+
+deliverables:
+  - "Annotated findings document (Markdown or PDF)"
+  - "Prioritised fix list with effort/impact estimates"
+  - "One quick-win fix applied and tested (proof of concept)"
+  - "Recommendations for next steps"
+
+quality_criteria:
+  - "Every claim references a specific node, log entry, or artifact"
+  - "Every fix has a clear rationale and expected benefit"
+  - "The applied fix is reversible and tested before handover"
+  - "All assumptions are documented"
+
+security_requirements:
+  vault_scope: per-engagement
+  data_retention: "14d_then_revoke"
+  approval_required_before_external_action: true
+  no_production_credentials: true
+  no_pii_unless_required: true
+
+completion_conditions:
+  - "Findings document delivered"
+  - "Fix list with priorities delivered"
+  - "Quick-win fix applied, tested, and documented"
+  - "Client has approved the return handover"
+
+notes: |
+  This skill assumes the workflow is already partially functional.
+  If the workflow is broken or completely untested, a scoping conversation
+  is recommended to reset expectations (may require more than 2 hours).

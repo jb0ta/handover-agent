@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://handover-agent.local/schemas/vault-manifest.v0.1.0.json",
+  "title": "Vault Manifest",
+  "description": "What was collected, from where, with what permissions and expiry. The proof that the handover is scoped and controlled.",
+  "type": "object",
+  "required": [
+    "engagement_id",
+    "brief_id",
+    "vault_path",
+    "scope",
+    "created_at",
+    "expires_at",
+    "items",
+    "audit_log"
+  ],
+  "properties": {
+    "engagement_id": {
+      "type": "string",
+      "description": "Unique ID for this engagement. Format: engagement-{UUID or timestamp}.",
+      "pattern": "^engagement-[a-z0-9-]+$"
+    },
+    "brief_id": {
+      "type": "string",
+      "description": "Links to the brief that drove this collection.",
+      "pattern": "^brief-[a-z0-9-]+$"
+    },
+    "vault_path": {
+      "type": "string",
+      "description": "Local or cloud path where vault contents are stored.",
+      "minLength": 5
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["per-engagement", "per-project", "organizational"],
+      "description": "How wide the vault contents can be used/shared."
+    },
+    "created_at": {
+      "type": "string",
+      "description": "When the vault was created."
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "When the vault is automatically locked/deleted."
+    },
+    "client_approval_required_before_use": {
+      "type": "boolean",
+      "description": "Must client re-approve before materials leave their control?"
+    },
+    "freelancer_approval_required_before_use": {
+      "type": "boolean",
+      "description": "Must freelancer accept the brief before starting work?"
+    },
+    "items": {
+      "type": "array",
+      "description": "Each collected file, link, or data item.",
+      "items": {
+        "type": "object",
+        "required": ["item_id", "name", "type", "path", "provenance", "collected_at", "collection_method"],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "Unique ID for this item (for audit trail).",
+            "pattern": "^item-[a-z0-9-]+$"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name.",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "description": "file, link, screenshot, credentials (scoped), api_key (scoped), text snippet, etc.",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "description": "Where in the vault (relative path).",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "description": "Size if applicable.",
+            "minimum": 0
+          },
+          "hash": {
+            "type": "string",
+            "description": "SHA256 hash of the item (for integrity verification).",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "provenance": {
+            "type": "string",
+            "description": "Source: client upload, system export, agent copy, etc.",
+            "minLength": 1
+          },
+          "collected_at": {
+            "type": "string"
+          },
+          "collection_method": {
+            "type": "string",
+            "description": "How it was collected: user_upload, api_export, screenshot, manual_paste, etc.",
+            "minLength": 1
+          },
+          "classification": {
+            "type": "string",
+            "enum": ["public", "internal", "confidential", "credentials_or_keys"],
+            "description": "Sensitivity level."
+          },
+          "access_restrictions": {
+            "type": "array",
+            "description": "Who can access this specific item.",
+            "items": {
+              "type": "string",
+              "enum": ["client_only", "freelancer_only", "both_with_approval", "audit_log_only"],
+              "minLength": 1
+            }
+          },
+          "notes": {
+            "type": "string",
+            "description": "Any handling notes or warnings.",
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "access_control": {
+      "type": "object",
+      "description": "Who can access what in this vault.",
+      "properties": {
+        "freelancer_access": {
+          "type": "string",
+          "enum": ["none", "read_only", "read_write", "read_until_expiry"],
+          "description": "What freelancer can do with vault."
+        },
+        "client_access": {
+          "type": "string",
+          "enum": ["none", "read_only", "revoke_anytime"],
+          "description": "What client can do (usually revoke or read their own data)."
+        },
+        "audit_access": {
+          "type": "string",
+          "enum": ["log_only", "full"],
+          "description": "What audit logs capture."
+        }
+      }
+    },
+    "audit_log": {
+      "type": "array",
+      "description": "Append-only log of all actions on the vault.",
+      "items": {
+        "type": "object",
+        "required": ["timestamp", "actor", "action", "details"],
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string",
+            "description": "Who performed the action: 'system', 'client', 'freelancer', 'agent_intake', etc.",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "description": "created, item_added, accessed, downloaded, approved, rejected, expired, revoked, etc.",
+            "minLength": 1
+          },
+          "item_ids": {
+            "type": "array",
+            "description": "Which items this action affects (if applicable).",
+            "items": { "type": "string" }
+          },
+          "details": {
+            "type": "string",
+            "description": "Human-readable description of what happened.",
+            "minLength": 1
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "Where the action came from (if applicable)."
+          }
+        }
+      }
+    },
+    "revocation_conditions": {
+      "type": "object",
+      "description": "When/how the vault is locked or deleted.",
+      "properties": {
+        "automatic_expiry_utc": {
+          "type": "string",
+          "description": "When the vault auto-locks (from expires_at)."
+        },
+        "manual_revocation_by_client": {
+          "type": "boolean",
+          "description": "Client can revoke anytime?"
+        },
+        "on_expiry_action": {
+          "type": "string",
+          "enum": ["lock_read_only", "delete", "archive"],
+          "description": "What happens when it expires."
+        },
+        "retention_after_expiry": {
+          "type": "string",
+          "description": "How long audit logs are kept after vault expires. Example: '90d'.",
+          "minLength": 1
+        }
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "description": "Who has approved using this vault and when.",
+      "items": {
+        "type": "object",
+        "required": ["approver", "approved_at", "approval_type"],
+        "properties": {
+          "approver": {
+            "type": "string",
+            "enum": ["client", "freelancer", "admin"],
+            "description": "Who approved."
+          },
+          "approved_at": {
+            "type": "string"
+          },
+          "approval_type": {
+            "type": "string",
+            "enum": ["vault_creation", "handover_use", "return_handover"],
+            "description": "What they approved."
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "return_handover_id": {
+      "type": "string",
+      "description": "Links to the return handover (when freelancer sends work back).",
+      "pattern": "^return-[a-z0-9-]+$"
+    }
+  },
+  "additionalProperties": false
+}

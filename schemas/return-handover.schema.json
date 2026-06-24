@@ -1,0 +1,219 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://handover-agent.local/schemas/return-handover.v0.1.0.json",
+  "title": "Return Handover",
+  "description": "What the freelancer returns after completing the work: deliverables, assumptions, changes, tests, and recommendations.",
+  "type": "object",
+  "required": [
+    "return_id",
+    "engagement_id",
+    "brief_id",
+    "freelancer",
+    "completed_at",
+    "deliverables",
+    "productive_time_minutes",
+    "status"
+  ],
+  "properties": {
+    "return_id": {
+      "type": "string",
+      "description": "Unique ID for this return handover.",
+      "pattern": "^return-[a-z0-9-]+$"
+    },
+    "engagement_id": {
+      "type": "string",
+      "description": "Links back to the vault/engagement.",
+      "pattern": "^engagement-[a-z0-9-]+$"
+    },
+    "brief_id": {
+      "type": "string",
+      "description": "Links back to the brief.",
+      "pattern": "^brief-[a-z0-9-]+$"
+    },
+    "freelancer": {
+      "type": "string",
+      "description": "Who completed the work.",
+      "minLength": 1
+    },
+    "completed_at": {
+      "type": "string",
+      "description": "When the work was finished."
+    },
+    "productive_time_minutes": {
+      "type": "integer",
+      "description": "Actual time spent on productive work (for billing).",
+      "minimum": 1,
+      "maximum": 480
+    },
+    "deliverables": {
+      "type": "array",
+      "description": "What is being returned to the client.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "location"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What this deliverable is.",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "description": "file, summary, list, recommendation, etc.",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "description": "Where it is (vault path, URL, etc.).",
+            "minLength": 1
+          },
+          "format": {
+            "type": "string",
+            "description": "JSON, Markdown, PDF, etc.",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "What this contains.",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "assumptions_made": {
+      "type": "array",
+      "description": "Key assumptions that shaped the work.",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      }
+    },
+    "changes_made": {
+      "type": "array",
+      "description": "What was changed (if applicable). Each change should be traceable.",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What was changed and why.",
+            "minLength": 10
+          },
+          "impact": {
+            "type": "string",
+            "description": "Expected impact or benefit."
+          },
+          "reversible": {
+            "type": "boolean",
+            "description": "Can this be undone?"
+          },
+          "tested": {
+            "type": "boolean",
+            "description": "Was this tested?"
+          },
+          "test_results": {
+            "type": "string",
+            "description": "What was the test outcome?"
+          }
+        }
+      }
+    },
+    "tests_performed": {
+      "type": "array",
+      "description": "Quality assurance / verification done.",
+      "items": {
+        "type": "object",
+        "required": ["description", "passed"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What was tested.",
+            "minLength": 10
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Details or caveats."
+          }
+        }
+      }
+    },
+    "unresolved_issues": {
+      "type": "array",
+      "description": "Things that couldn't be completed or are open.",
+      "items": {
+        "type": "object",
+        "required": ["issue", "reason"],
+        "properties": {
+          "issue": {
+            "type": "string",
+            "description": "What is unresolved.",
+            "minLength": 10
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it couldn't be done.",
+            "minLength": 10
+          },
+          "blocking": {
+            "type": "boolean",
+            "description": "Does this block using the deliverables?"
+          },
+          "recommended_next_action": {
+            "type": "string",
+            "description": "How to address this."
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "Suggestions for next steps or improvements.",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 500
+      }
+    },
+    "quality_checklist": {
+      "type": "object",
+      "description": "Self-check against the skill's quality criteria.",
+      "properties": {
+        "matches_skill_criteria": {
+          "type": "boolean",
+          "description": "Does this match what the skill promised?"
+        },
+        "deliverables_complete": {
+          "type": "boolean"
+        },
+        "all_assumptions_documented": {
+          "type": "boolean"
+        },
+        "changes_are_traceable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["submitted", "approved", "rejected", "awaiting_client_feedback"],
+      "description": "Current approval status of this return."
+    },
+    "client_feedback": {
+      "type": "string",
+      "description": "Client's response or approval notes.",
+      "maxLength": 1000
+    },
+    "notes": {
+      "type": "string",
+      "description": "Any additional context or reflections.",
+      "maxLength": 1000
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://handover-agent.local/schemas/brief.v0.1.0.json",
+  "title": "Client Brief",
+  "description": "A structured client need, collected and shaped by the skill-driven intake. Ready for the freelancer to act on.",
+  "type": "object",
+  "required": [
+    "brief_id",
+    "engagement_id",
+    "skill",
+    "created_at",
+    "client_objective",
+    "current_situation",
+    "desired_result",
+    "scope",
+    "out_of_scope",
+    "constraints",
+    "source_materials",
+    "access_provided",
+    "risks",
+    "success_criteria",
+    "estimated_productive_time_minutes"
+  ],
+  "properties": {
+    "brief_id": {
+      "type": "string",
+      "description": "Unique ID for this brief. Format: brief-{UUID or timestamp}.",
+      "pattern": "^brief-[a-z0-9-]+$"
+    },
+    "engagement_id": {
+      "type": "string",
+      "description": "Links to the vault/handover manifest. Format: engagement-{UUID or timestamp}.",
+      "pattern": "^engagement-[a-z0-9-]+$"
+    },
+    "skill": {
+      "type": "string",
+      "description": "The skill that shaped this brief.",
+      "minLength": 3
+    },
+    "created_at": {
+      "type": "string",
+      "description": "When this brief was generated."
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Client name (optional for privacy).",
+      "minLength": 1
+    },
+    "client_objective": {
+      "type": "string",
+      "description": "What does the client want to achieve?",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "current_situation": {
+      "type": "string",
+      "description": "Where are they now? What's the context?",
+      "minLength": 10,
+      "maxLength": 1000
+    },
+    "desired_result": {
+      "type": "string",
+      "description": "What does 'done' look like?",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "scope": {
+      "type": "string",
+      "description": "What IS included in this work.",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "out_of_scope": {
+      "type": "array",
+      "description": "What is explicitly NOT included.",
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 300
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Limitations: time, budget, technical, regulatory, etc.",
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 300
+      }
+    },
+    "stakeholders": {
+      "type": "array",
+      "description": "Who is involved or needs to approve the work?",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "approval_required": { "type": "boolean" }
+        },
+        "required": ["name", "role"]
+      }
+    },
+    "source_materials": {
+      "type": "array",
+      "description": "Files, links, or data the client provided.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Filename or description.",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "description": "file, link, screenshot, text, etc.",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "description": "Where it is stored (vault path, URL, etc.).",
+            "minLength": 1
+          },
+          "provenance": {
+            "type": "string",
+            "description": "Source / who provided it.",
+            "minLength": 1
+          },
+          "collected_at": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "type", "location", "provenance"]
+      }
+    },
+    "access_provided": {
+      "type": "array",
+      "description": "System access, credentials scope, or API keys (carefully scoped).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string",
+            "description": "Name of system (e.g., 'n8n', 'GitHub', 'Slack').",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "description": "What can be accessed: 'read-only', 'read-write', specific permissions.",
+            "minLength": 1
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When access is automatically revoked."
+          },
+          "security_note": {
+            "type": "string",
+            "description": "Important security or usage notes."
+          }
+        },
+        "required": ["system", "scope"]
+      }
+    },
+    "risks": {
+      "type": "array",
+      "description": "Known risks or sensitivities in this engagement.",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "description": "Things still unclear or needing confirmation.",
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 300
+      }
+    },
+    "success_criteria": {
+      "type": "array",
+      "description": "How to measure if the work was successful.",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      }
+    },
+    "estimated_productive_time_minutes": {
+      "type": "integer",
+      "description": "How many minutes of focused work this should take.",
+      "minimum": 30,
+      "maximum": 480,
+      "examples": [60, 120]
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["pending_approval", "approved", "rejected"],
+      "description": "Has a human approved sending this to the freelancer?"
+    },
+    "approved_at": {
+      "type": "string",
+      "description": "When (and by whom, in audit log) approval happened."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Any additional context or notes.",
+      "maxLength": 1000
+    }
+  },
+  "additionalProperties": false
+}
