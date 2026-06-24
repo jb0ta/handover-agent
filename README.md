@@ -243,7 +243,7 @@ See [docs/threat-model.md](docs/threat-model.md) for the full model.
 
 ## Philosophy
 
-This implementation follows Dinis Cruz's stated values:
+This implementation follows these values:
 
 1. **Artifacts over slides.** Everything here is code, schemas, or working examples. No marketing copy.
 2. **Type-safe & validated.** All inputs and outputs are schema-validated; no surprises.
