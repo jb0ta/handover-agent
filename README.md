@@ -304,15 +304,6 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 
 ---
 
-## References
-
-- **Dinis Cruz's micro-engagement brief:** v0.33.33, published June 23, 2026
-- **Skills-as-code brief:** v0.33.40 (referenced in main brief)
-- **Wardley Maps / EVTP:** Simon Wardley's Explorers/Villagers/Town-Planners model (organizational archetypes)
-- **Provenance & graph thinking:** Dinis's research hub articles on semantic graphs and trust
-
----
-
 ## Status
 
 **v0.1.2 — MVP / Proof of Concept**
