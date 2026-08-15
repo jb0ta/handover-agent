@@ -186,13 +186,87 @@ describe("Intake — PII warning (regression)", () => {
   });
 });
 
-describe("Skill loading — YAML is advertised but not yet parsed", () => {
-  // Documents ACTUAL behaviour honestly: a .yaml skill currently throws a
-  // clear, predictable error rather than silently mis-parsing.
-  it("throws a clear error when given a .yaml skill", async () => {
+describe("Skill loading — YAML and JSON are interchangeable", () => {
+  // A .yaml skill used to throw "YAML support not yet implemented", so
+  // example-skill.yaml was never parsed by anything — and had drifted: it
+  // carried a `notes` field the strict skill schema rejected. Parsing it
+  // surfaced that immediately. `notes` is now part of the schema, and these
+  // tests keep the two example files honest with each other.
+  it("loads a YAML skill", async () => {
     const intake = makeIntake();
-    await expect(intake.loadSkill(EXAMPLE_SKILL_YAML)).rejects.toThrow(
-      /YAML support not yet implemented/
+    const skill = await intake.loadSkill(EXAMPLE_SKILL_YAML);
+    expect(skill.skill).toBe("workflow-automation-review");
+    expect(skill.version).toBe("0.1.0");
+    expect(skill.security_requirements?.no_pii_unless_required).toBe(true);
+  });
+
+  it("produces an identical skill from the YAML and JSON examples", async () => {
+    const intake = makeIntake();
+    const fromYaml = await intake.loadSkill(EXAMPLE_SKILL_YAML);
+    const fromJson = await intake.loadSkill(EXAMPLE_SKILL_JSON);
+    expect(fromYaml).toEqual(fromJson);
+  });
+
+  it("rejects a YAML skill that violates the schema", async () => {
+    const intake = makeIntake();
+    const badPath = path.join(__dirname, "tmp-bad-skill.yaml");
+    fs.writeFileSync(badPath, "skill: x\nversion: 0.1.0\n");
+    await expect(intake.loadSkill(badPath)).rejects.toThrow(/validation failed/);
+    fs.unlinkSync(badPath);
+  });
+
+  it("reports malformed YAML as a parse error, not a schema error", async () => {
+    const intake = makeIntake();
+    const badPath = path.join(__dirname, "tmp-malformed.yaml");
+    fs.writeFileSync(badPath, "skill: [unclosed\n");
+    await expect(intake.loadSkill(badPath)).rejects.toThrow(/not valid YAML/);
+    fs.unlinkSync(badPath);
+  });
+
+  it("rejects an unsupported file extension", async () => {
+    const intake = makeIntake();
+    const badPath = path.join(__dirname, "tmp-skill.txt");
+    fs.writeFileSync(badPath, "skill: x");
+    await expect(intake.loadSkill(badPath)).rejects.toThrow(
+      /must be \.json, \.yaml or \.yml/
     );
+    fs.unlinkSync(badPath);
+  });
+
+  it("still reports a missing file clearly", async () => {
+    const intake = makeIntake();
+    await expect(intake.loadSkill("./skills/nope.yaml")).rejects.toThrow(/not found/);
+  });
+});
+
+describe("Brief generation — vault handling stays out of the brief", () => {
+  // classification / access_restrictions / notes are declared alongside the
+  // material because that is where the client knows them, but they describe
+  // custody, not the work. The brief is what the freelancer reads.
+  it("strips vault-handling fields from brief source materials", async () => {
+    const intake = makeIntake();
+    const skill = await intake.loadSkill(EXAMPLE_SKILL_JSON);
+    const brief = intake.generateBrief(skill, {
+      ...COMPLETE_RESPONSE,
+      source_materials: [
+        {
+          name: "workflow.json",
+          type: "file",
+          location: "workflow.json",
+          provenance: "client_upload",
+          classification: "credentials_or_keys",
+          access_restrictions: ["client_only"],
+          notes: "handling note",
+        },
+      ],
+    } as any);
+
+    expect(brief.source_materials[0]).toEqual({
+      name: "workflow.json",
+      type: "file",
+      location: "workflow.json",
+      provenance: "client_upload",
+    });
+    expect(intake.validateBrief(brief).valid).toBe(true);
   });
 });

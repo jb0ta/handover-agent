@@ -2,16 +2,22 @@ import * as fs from "fs";
 import * as path from "path";
 import Intake from "./intake/Intake";
 import ApprovalGate, { ApprovalError } from "./approval/ApprovalGate";
-import { createDemoEngagement, DEMO_SKILL_PATH } from "./demo/demoEngagement";
+import { createEngagement } from "./engagement/createEngagement";
+import { parseArgs, usage, UsageError } from "./cli/options";
 
 /**
- * Main: demonstrates the full handover-agent flow.
+ * Main: runs the onboarding half of the flow end to end.
  *
- * 1. Load a skill and run intake against a client response
+ * 1. Load a skill (JSON or YAML) and run intake against a client response
  * 2. Generate a structured, schema-validated brief
  * 3. Package a scoped vault manifest (provenance, classification, expiry)
  * 4. Show that the agent cannot approve its own handover
  * 5. Stop at the gate — a human decides, in the UI (`npm run gate`)
+ *
+ * With no arguments it runs the built-in worked example. Point it at real
+ * files to run a real engagement:
+ *
+ *   npm run dev -- --skill ./skills/my-skill.yaml --response ./client.yaml
  */
 
 function rule(): void {
@@ -19,7 +25,13 @@ function rule(): void {
 }
 
 async function main(): Promise<void> {
-  console.log("🚀 Handover Agent Demo\n");
+  const options = parseArgs(process.argv.slice(2));
+  if (options.help) {
+    console.log(usage());
+    return;
+  }
+
+  console.log("🚀 Handover Agent\n");
   console.log("=".repeat(60));
 
   const intake = new Intake(
@@ -28,15 +40,18 @@ async function main(): Promise<void> {
   );
 
   console.log("\n📥 Running intake...\n");
-  const skill = await intake.loadSkill(DEMO_SKILL_PATH);
-  console.log(`✓ Loaded skill: ${skill.skill} v${skill.version}`);
 
-  const { brief, vault, validation, responseValidation } =
-    await createDemoEngagement(intake);
+  const { skill, brief, vault, validation, responseValidation, sources } =
+    await createEngagement(intake, {
+      skillPath: options.skillPath,
+      responsePath: options.responsePath,
+    });
 
+  console.log(`✓ Loaded skill:    ${skill.skill} v${skill.version}  (${sources.skill})`);
+  console.log(`✓ Loaded response: ${sources.response}`);
   console.log(`✓ Generated brief: ${brief.brief_id}`);
   console.log(
-    `✓ Packaged vault: ${vault.items.length} item(s), expires ${vault.expires_at}`
+    `✓ Packaged vault:  ${vault.items.length} item(s), expires ${vault.expires_at}`
   );
 
   rule();
@@ -98,22 +113,32 @@ async function main(): Promise<void> {
 
   rule();
 
-  const outputDir = "./examples";
-  fs.mkdirSync(outputDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(outputDir, "example-brief.json"),
-    JSON.stringify(brief, null, 2)
-  );
-  fs.writeFileSync(
-    path.join(outputDir, "example-vault-manifest.json"),
-    JSON.stringify(vault, null, 2)
-  );
-
-  console.log("✓ Saved example-brief.json to examples/");
-  console.log("✓ Saved example-vault-manifest.json to examples/\n");
+  // Only the built-in example is written back to examples/. A real engagement
+  // belongs in engagements/, written by the gate when a human decides.
+  if (!options.responsePath) {
+    const outputDir = "./examples";
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(outputDir, "example-brief.json"),
+      JSON.stringify(brief, null, 2)
+    );
+    fs.writeFileSync(
+      path.join(outputDir, "example-vault-manifest.json"),
+      JSON.stringify(vault, null, 2)
+    );
+    console.log("✓ Saved example-brief.json to examples/");
+    console.log("✓ Saved example-vault-manifest.json to examples/\n");
+  } else {
+    console.log("Run `npm run gate` with the same arguments to decide on it.\n");
+  }
 }
 
 main().catch((error) => {
-  console.error("❌ Error:", error);
+  if (error instanceof UsageError) {
+    console.error(`❌ ${error.message}\n`);
+    console.error(usage());
+  } else {
+    console.error("❌ Error:", error);
+  }
   process.exit(1);
 });

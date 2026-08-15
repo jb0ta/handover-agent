@@ -163,6 +163,11 @@
         "findings delivered and reviewed",
         "human approval received on return handover"
       ]
+    },
+    "notes": {
+      "type": "string",
+      "description": "Caveats or scoping context a client should read before engaging.",
+      "maxLength": 1000
     }
   },
   "additionalProperties": false

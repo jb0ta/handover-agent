@@ -1,7 +1,8 @@
-import * as fs from "fs";
 import { randomUUID } from "crypto";
 import { ErrorObject } from "ajv";
 import SchemaValidator from "../validation/SchemaValidator";
+import loadDocument from "../io/loadDocument";
+import { AccessRestriction, Classification } from "../types";
 import { NewBrief } from "../types";
 
 /**
@@ -17,9 +18,15 @@ import { NewBrief } from "../types";
  */
 const ACCESS_NEED_PATTERN = /\baccess\b|\bcredential|\blogin\b|\bpermission/i;
 
-/** Wording that suggests personal data may be in scope. */
+/**
+ * Wording that suggests personal data may be in scope.
+ *
+ * A heuristic, and deliberately a broad one — a false warning costs the
+ * reviewer a glance, a missed one costs the client. It cannot catch a brief
+ * that describes personal data without naming it.
+ */
 const PII_HINT_PATTERN =
-  /\bcustomers?\b|\busers?\b|\bpersonal data\b|\bpii\b|\bemail addresses\b|\bphone numbers\b/i;
+  /\bcustomers?\b|\busers?\b|\bpatients?\b|\bemployees?\b|\bpersonal (data|information)\b|\bpii\b|\bemail addresses\b|\bphone numbers\b|\bdate of birth\b/i;
 
 export interface SkillSecurityRequirements {
   vault_scope?: string;
@@ -48,6 +55,14 @@ export interface ResponseSourceMaterial {
   location: string;
   provenance: string;
   collected_at?: string;
+  /**
+   * Vault handling for this material. Sensitivity is a property of the thing
+   * itself, so it is declared where the material is declared — but it belongs
+   * to the vault, not the brief, and is stripped before the brief is built.
+   */
+  classification?: Classification;
+  access_restrictions?: AccessRestriction[];
+  notes?: string;
 }
 
 export interface ResponseAccessGrant {
@@ -101,23 +116,7 @@ export class Intake {
    * Load a skill file (YAML or JSON) and validate it
    */
   async loadSkill(skillPath: string): Promise<SkillDefinition> {
-    if (!fs.existsSync(skillPath)) {
-      throw new Error(`Skill file not found: ${skillPath}`);
-    }
-
-    const content = fs.readFileSync(skillPath, "utf-8");
-    let skill: SkillDefinition;
-
-    if (skillPath.endsWith(".yaml") || skillPath.endsWith(".yml")) {
-      // For YAML, we'd use a YAML parser in production
-      // For now, assume it's been converted to JSON or use a simple parser
-      console.warn(
-        "YAML parsing requires a YAML library. Using JSON-only for MVP."
-      );
-      throw new Error("YAML support not yet implemented. Use JSON skills.");
-    } else {
-      skill = JSON.parse(content);
-    }
+    const skill = loadDocument<SkillDefinition>(skillPath, "Skill file");
 
     // Validate against skill schema
     const result = this.validator.validate(this.skillSchemaPath, skill);
@@ -275,7 +274,16 @@ export class Intake {
         `Work within the scope of this ${skill.skill} skill`,
       out_of_scope: (response.out_of_scope as string[]) || [],
       constraints: (response.constraints as string[]) || [],
-      source_materials: response.source_materials || [],
+      // Only the brief's own fields survive. Vault handling (classification,
+      // access restrictions, handling notes) is declared alongside the material
+      // but stays out of the brief, which is a description of the work.
+      source_materials: (response.source_materials ?? []).map((material) => ({
+        name: material.name,
+        type: material.type,
+        location: material.location,
+        provenance: material.provenance,
+        ...(material.collected_at ? { collected_at: material.collected_at } : {}),
+      })),
       access_provided: response.access_provided || [],
       risks: (response.risks as string[]) || [],
       open_questions: (response.open_questions as string[]) || [],

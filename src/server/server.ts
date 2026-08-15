@@ -3,7 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import Intake from "../intake/Intake";
 import ApprovalGate, { ApprovalError } from "../approval/ApprovalGate";
-import { createDemoEngagement } from "../demo/demoEngagement";
+import { createEngagement } from "../engagement/createEngagement";
+import { parseArgs, usage, UsageError, DEFAULT_SKILL_PATH } from "../cli/options";
 import { Brief, VaultManifest } from "../types";
 
 /**
@@ -32,12 +33,18 @@ export interface EngagementState {
   vault: VaultManifest;
   /** Missing-info findings from intake, surfaced to the reviewer. */
   intake_findings: { missing: string[]; warnings: string[] };
+  /** Which files this engagement was built from. */
+  sources: { skill: string; response: string };
 }
 
 export interface ServerOptions {
   port?: number;
   host?: string;
   outputDir?: string;
+  /** Skill to run intake against. Defaults to the example skill. */
+  skillPath?: string;
+  /** Client response file. Omit to use the built-in worked example. */
+  responsePath?: string;
 }
 
 export class ApprovalServer {
@@ -45,12 +52,16 @@ export class ApprovalServer {
   private gate: ApprovalGate;
   private intake: Intake;
   private outputDir: string;
+  private skillPath: string;
+  private responsePath?: string;
   private server: http.Server;
 
   constructor(options: ServerOptions = {}) {
     this.gate = new ApprovalGate();
     this.intake = new Intake();
     this.outputDir = options.outputDir ?? "./engagements";
+    this.skillPath = options.skillPath ?? DEFAULT_SKILL_PATH;
+    this.responsePath = options.responsePath;
     this.server = http.createServer((req, res) => {
       this.handle(req, res).catch((error) => {
         this.sendJson(res, 500, {
@@ -62,14 +73,18 @@ export class ApprovalServer {
 
   /** Loads a fresh, undecided engagement. */
   async seed(): Promise<EngagementState> {
-    const demo = await createDemoEngagement(this.intake);
+    const engagement = await createEngagement(this.intake, {
+      skillPath: this.skillPath,
+      responsePath: this.responsePath,
+    });
     this.state = {
-      brief: demo.brief,
-      vault: demo.vault,
+      brief: engagement.brief,
+      vault: engagement.vault,
       intake_findings: {
-        missing: demo.responseValidation.missing,
-        warnings: demo.responseValidation.warnings,
+        missing: engagement.responseValidation.missing,
+        warnings: engagement.responseValidation.warnings,
       },
+      sources: engagement.sources,
     };
     return this.state;
   }
@@ -241,22 +256,49 @@ ${body}
 }
 
 async function main(): Promise<void> {
-  const port = Number(process.env.PORT ?? DEFAULT_PORT);
-  const server = new ApprovalServer();
+  const options = parseArgs(process.argv.slice(2));
+  if (options.help) {
+    console.log(usage());
+    return;
+  }
+
+  const port = options.port ?? Number(process.env.PORT ?? DEFAULT_PORT);
+  const server = new ApprovalServer({
+    skillPath: options.skillPath,
+    responsePath: options.responsePath,
+    outputDir: options.outputDir,
+  });
   const actual = await server.listen(port);
   const state = await server.seed();
 
   console.log("\n🔒 Handover Agent — Approval Gate\n");
   console.log(`   Review UI:  http://${DEFAULT_HOST}:${actual}`);
+  console.log(`   Skill:      ${state.sources.skill}`);
+  console.log(`   Response:   ${state.sources.response}`);
   console.log(`   Engagement: ${state.brief.engagement_id}`);
   console.log(`   Brief:      ${state.brief.brief_id} (${state.brief.approval_status})`);
   console.log(`   Vault:      ${state.vault.items.length} item(s), freelancer access "${state.vault.access_control?.freelancer_access}"`);
+
+  const findings = [
+    ...state.intake_findings.missing,
+    ...state.intake_findings.warnings,
+  ];
+  if (findings.length > 0) {
+    console.log(`\n   ⚠️  Intake flagged ${findings.length}:`);
+    findings.forEach((finding) => console.log(`      ${finding}`));
+  }
+
   console.log("\n   No authentication — bound to loopback. Ctrl+C to stop.\n");
 }
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error("❌ Failed to start approval gate:", error);
+    if (error instanceof UsageError) {
+      console.error(`❌ ${error.message}\n`);
+      console.error(usage());
+    } else {
+      console.error("❌ Failed to start approval gate:", error);
+    }
     process.exit(1);
   });
 }

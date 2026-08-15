@@ -1,13 +1,14 @@
-import Intake, { ClientResponse } from "../intake/Intake";
-import { buildVaultManifest } from "../vault/VaultManifest";
-import { Brief, VaultManifest } from "../types";
+import { ClientResponse } from "../intake/Intake";
 
 /**
- * The worked example used by both the CLI demo (`npm start`) and the approval
- * gate server (`npm run gate`), so the two never drift apart.
+ * The worked example, used as the default client response when no
+ * `--response` file is given.
+ *
+ * It is an ordinary `ClientResponse` — exactly what a real response file
+ * parses into — so the demo exercises the same code path a real engagement
+ * does. `examples/example-client-response.yaml` is this same content in the
+ * format a client would actually be handed.
  */
-
-export const DEMO_SKILL_PATH = "./skills/example-skill.json";
 
 export const DEMO_CLIENT_RESPONSE: ClientResponse = {
   client_name: "TechFlow Inc.",
@@ -33,14 +34,19 @@ export const DEMO_CLIENT_RESPONSE: ClientResponse = {
       type: "file",
       location: "lead-workflow.json",
       provenance: "Client export from n8n",
-      collected_at: new Date().toISOString(),
+      classification: "internal",
+      access_restrictions: ["freelancer_only"],
+      notes:
+        "Contains workflow logic and API endpoints. Do not share externally.",
     },
     {
       name: "Error log (last 7 days)",
       type: "file",
       location: "error-log.csv",
       provenance: "Client export from n8n logs",
-      collected_at: new Date().toISOString(),
+      classification: "confidential",
+      access_restrictions: ["freelancer_only"],
+      notes: "Contains timestamps and error details. May contain PII.",
     },
   ],
   access_provided: [
@@ -67,60 +73,4 @@ export const DEMO_CLIENT_RESPONSE: ClientResponse = {
   estimated_productive_time_minutes: 120,
 };
 
-/**
- * Per-item handling for the demo materials. The intake collects them; a human
- * classifies them. Anything not named here defaults to "internal".
- */
-const DEMO_ITEM_HANDLING: Record<
-  string,
-  { classification: "internal" | "confidential"; notes: string }
-> = {
-  "Lead workflow export": {
-    classification: "internal",
-    notes:
-      "Contains workflow logic and API endpoints. Do not share externally.",
-  },
-  "Error log (last 7 days)": {
-    classification: "confidential",
-    notes: "Contains timestamps and error details. May contain PII.",
-  },
-};
-
-export interface DemoEngagement {
-  brief: Brief;
-  vault: VaultManifest;
-  validation: ReturnType<Intake["validateBrief"]>;
-  responseValidation: ReturnType<Intake["validateResponse"]>;
-}
-
-/**
- * Runs the real intake path and packages the result. Nothing here approves
- * anything — the brief comes back `pending_approval` and the vault comes back
- * with `freelancer_access: "none"`.
- */
-export async function createDemoEngagement(
-  intake: Intake = new Intake(),
-  skillPath: string = DEMO_SKILL_PATH
-): Promise<DemoEngagement> {
-  const skill = await intake.loadSkill(skillPath);
-  const responseValidation = intake.validateResponse(
-    skill,
-    DEMO_CLIENT_RESPONSE
-  );
-  const brief = intake.generateBrief(skill, DEMO_CLIENT_RESPONSE) as Brief;
-  const validation = intake.validateBrief(brief);
-
-  const vault = buildVaultManifest(brief, {
-    items: brief.source_materials.map((material) => ({
-      name: material.name,
-      type: material.type,
-      path: material.location,
-      provenance: material.provenance,
-      collected_at: material.collected_at,
-      collection_method: "user_upload",
-      ...(DEMO_ITEM_HANDLING[material.name] ?? {}),
-    })),
-  });
-
-  return { brief, vault, validation, responseValidation };
-}
+export default DEMO_CLIENT_RESPONSE;

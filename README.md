@@ -54,13 +54,14 @@ Billing: Productive Time Only
 - **Vault manifest schema** (`schemas/vault-manifest.schema.json`) — validates scoped handover + provenance + audit log
 - **Return-handover schema** (`schemas/return-handover.schema.json`) — validates what freelancer returns
 - **Intake logic** (`src/intake/Intake.ts`) — loads skill, asks questions, builds brief, validates against schemas
+- **File-driven engagements** (`src/engagement/`, `src/cli/`) — point `--skill` and `--response` at real YAML or JSON files and run a real engagement without touching source
 - **Vault packaging** (`src/vault/VaultManifest.ts`) — turns collected materials into a scoped manifest with provenance, classification and expiry
 - **Approval gate** (`src/approval/ApprovalGate.ts`) — the human sign-off, enforced: an automated identity cannot approve, a brief is decided once, and every decision appends to the audit log
 - **Approval gate server + review UI** (`src/server/`, `src/ui/`) — run `npm run gate`, read the brief beside what would leave the client's control, and decide
 - **Example skill** (`skills/example-skill.yaml`) — demonstrates skill-as-code (workflow-automation-review)
 - **Example outputs** (`examples/`) — sample brief + vault manifest from the demo
 - **Demo runner** (`src/main.ts`) — end-to-end flow showing concept
-- **Test suite** (`tests/`) — 59 tests, including build-failing safety invariants (a new brief can never be auto-approved; an agent can never approve one)
+- **Test suite** (`tests/`) — 81 tests, including build-failing safety invariants (a new brief can never be auto-approved; an agent can never approve one)
 - **Schema validator** (`scripts/validate-schemas.js`) — validates schemas + examples; run with `npm run validate:schemas`
 - **Docs** (`docs/architecture.md`, `docs/threat-model.md`) — trust boundaries and the security model
 - **CI** (`.github/workflows/ci.yml`) — lint, schemas, tests and build on Node 18 and 22, every push and PR
@@ -68,7 +69,6 @@ Billing: Productive Time Only
 
 ### ⚠️ Concept Only (Not Implemented)
 
-- Actual YAML parsing (skills are JSON for now; `example-skill.yaml` is provided for readability)
 - Vault filesystem/access control (the manifest records who may read what; no runtime storage layer enforces it)
 - Authentication on the gate (it binds to loopback and trusts whoever reaches it — see [Security](#security--provenance-design))
 - Freelancer workspace + live return-handover collection (schema + example exist; no runtime)
@@ -86,12 +86,16 @@ Billing: Productive Time Only
 │   └── return-handover.schema.json  # Freelancer deliverables
 ├── skills/                           # Example skills
 │   └── example-skill.yaml           # Workflow review skill
-├── examples/                         # Example outputs
+├── examples/                         # Example inputs and outputs
+│   ├── example-client-response.yaml # Copy this to onboard a real client
 │   ├── example-brief.json           # Sample generated brief
 │   ├── example-vault-manifest.json  # Sample vault
 │   └── example-return-handover.json # Sample return handover
 ├── src/
 │   ├── intake/Intake.ts             # Skill-driven intake → brief
+│   ├── engagement/createEngagement.ts # Skill + response → brief + vault
+│   ├── io/loadDocument.ts           # JSON or YAML, one loader
+│   ├── cli/options.ts               # --skill / --response argument parsing
 │   ├── vault/VaultManifest.ts       # Scoped vault packaging
 │   ├── approval/ApprovalGate.ts     # The human sign-off, enforced
 │   ├── server/server.ts             # Approval gate HTTP server
@@ -100,7 +104,7 @@ Billing: Productive Time Only
 │   ├── demo/demoEngagement.ts       # The worked example, shared
 │   ├── types.ts                     # TS mirrors of the schemas
 │   └── main.ts                      # Demo runner
-├── tests/                            # 59 tests across 4 suites
+├── tests/                            # 81 tests across 5 suites
 ├── docs/                             # architecture.md, threat-model.md
 ├── package.json
 ├── tsconfig.json
@@ -219,9 +223,31 @@ completion_conditions:
   - "Client approved the return handover"
 ```
 
-> Note: the loader parses **JSON** today; provide the equivalent as a `.json` file. YAML parsing is on the roadmap.
+Skills load from `.yaml`, `.yml` or `.json` — the same skill either way.
 
-Today the demo runs a built-in example via `npm start`. A CLI to pass an arbitrary skill + response file is on the roadmap (see [What's Coming](#whats-coming)).
+## Usage: Run a Real Engagement
+
+Nothing here requires editing source. Copy the response template, fill it in
+with the client's own words, and run it:
+
+```bash
+cp examples/example-client-response.yaml my-client.yaml
+# ...fill it in...
+
+npm run gate -- --skill ./skills/my-skill.yaml --response ./my-client.yaml
+```
+
+Intake checks the response against the skill's `what_i_need` and tells you what
+is missing *before* you decide — the gate shows those findings above the
+decision form.
+
+Per-material `classification`, `access_restrictions` and `notes` are declared
+alongside each material in the response file. They travel into the vault, not
+the brief: the brief describes the work, the vault records custody.
+
+```bash
+npm run dev -- --help     # all options
+```
 
 ---
 
@@ -270,8 +296,8 @@ See [docs/threat-model.md](docs/threat-model.md) for the full model.
 - [x] Approval workflow (human sign-off before the vault opens)
 - [x] Threat model & documented hardening
 - [x] Test suite (intake validation, schema validation, gate invariants, edge cases)
-- [ ] YAML skill parser (not just JSON — the `yaml` dependency is already installed)
-- [ ] CLI interface (load an arbitrary skill + response file)
+- [x] YAML skill parser (not just JSON)
+- [x] File-driven engagements (`--skill` / `--response`, JSON or YAML)
 
 ### Phase 3
 - [ ] Authentication on the gate (it currently trusts whoever reaches the port)
@@ -365,12 +391,13 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 - ✅ Core intake logic working
 - ✅ Example skill + outputs + return handover
 - ✅ Approval gate enforced in code, over HTTP, and in a review UI
-- ✅ Test suite (59 passing, incl. safety invariants)
+- ✅ Test suite (81 passing, incl. safety invariants)
 - ✅ Architecture + threat-model docs
 - ⚠️ Not production-hardened
 - ❌ No authentication on the gate (loopback only)
 - ❌ No vault runtime enforcement yet
 - ❌ No return-handover runtime yet
+- ✅ Runs real engagements from files, no source edits
 
 **Expected next step:** the freelancer half of the loop — a workspace that opens
 on approval, and a return handover collected against its schema.
