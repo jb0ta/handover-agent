@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# The README claims the safety invariants "fail the build". This is the build.
+# `tests/intake.test.ts` fails if a new brief is ever auto-approved, and
+# `tests/approval-gate.test.ts` fails if an agent identity can approve one —
+# so a change that weakens either cannot merge green.
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the floor declared in package.json engines; 22 is current LTS.
+        node-version: ["18.x", "22.x"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Validate schemas and examples
+        run: npm run validate:schemas
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

@@ -1,8 +1,8 @@
 {
-  "brief_id": "brief-530800ef-8385-4ff9-b955-cadd86f4bf53",
-  "engagement_id": "engagement-3335b11c-dc22-4c23-8e10-be794dfb9e79",
+  "brief_id": "brief-fdb0b45b-88ce-4411-83ca-c3d736e13d28",
+  "engagement_id": "engagement-b5b96467-0a29-4082-838f-55f2cd2795a7",
   "skill": "workflow-automation-review",
-  "created_at": "2026-08-15T15:45:06.508Z",
+  "created_at": "2026-08-15T15:54:28.956Z",
   "client_objective": "Make our main lead-capture workflow 30% faster and more reliable",
   "current_situation": "We run a webhook-triggered n8n workflow that collects form submissions, validates them, enriches with company data via API, and logs to Pipedrive. It works, but often times out on large batches and sometimes loses data.",
   "desired_result": "A faster, more resilient workflow that can handle 500+ leads per day without timeouts or data loss. We want clear error handling and retry logic.",
@@ -21,21 +21,21 @@
       "type": "file",
       "location": "lead-workflow.json",
       "provenance": "Client export from n8n",
-      "collected_at": "2026-08-15T15:45:06.450Z"
+      "collected_at": "2026-08-15T15:54:28.901Z"
     },
     {
       "name": "Error log (last 7 days)",
       "type": "file",
       "location": "error-log.csv",
       "provenance": "Client export from n8n logs",
-      "collected_at": "2026-08-15T15:45:06.450Z"
+      "collected_at": "2026-08-15T15:54:28.901Z"
     }
   ],
   "access_provided": [
     {
       "system": "n8n",
       "scope": "read-only access to the workflow and logs",
-      "expires_at": "2026-08-22T15:45:06.450Z"
+      "expires_at": "2026-08-22T15:54:28.901Z"
     }
   ],
   "risks": [

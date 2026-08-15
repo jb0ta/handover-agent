@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import {
   AccessRestriction,
   AuditEntry,
@@ -45,7 +45,7 @@ export interface BuildVaultOptions {
 
 function toVaultItem(input: VaultItemInput, collectedAt: string): VaultItem {
   return {
-    item_id: `item-${uuidv4()}`,
+    item_id: `item-${randomUUID()}`,
     name: input.name,
     type: input.type,
     path: input.path,

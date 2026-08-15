@@ -63,7 +63,8 @@ Billing: Productive Time Only
 - **Test suite** (`tests/`) — 59 tests, including build-failing safety invariants (a new brief can never be auto-approved; an agent can never approve one)
 - **Schema validator** (`scripts/validate-schemas.js`) — validates schemas + examples; run with `npm run validate:schemas`
 - **Docs** (`docs/architecture.md`, `docs/threat-model.md`) — trust boundaries and the security model
-- **Package setup** — Node 18+, TypeScript, AJV schema validation, ready to build/test/deploy
+- **CI** (`.github/workflows/ci.yml`) — lint, schemas, tests and build on Node 18 and 22, every push and PR
+- **Package setup** — Node 18+, TypeScript, AJV schema validation, one runtime dependency
 
 ### ⚠️ Concept Only (Not Implemented)
 
@@ -325,6 +326,10 @@ npm run gate      # Approval gate server + review UI
 npm test          # Run jest
 npm run test:watch
 ```
+
+CI runs `lint`, `validate:schemas`, `test` and `build` on Node 18 and 22 for every
+push and pull request. The safety invariants are ordinary tests, so weakening one
+fails the build.
 
 ### Linting & Formatting
 

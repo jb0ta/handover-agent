@@ -19,6 +19,7 @@ The approval gate stops being a diagram. It is now a module, an HTTP surface, an
 - **`src/validation/SchemaValidator.ts`** — one compiled-schema cache shared by intake and the gate.
 - **`src/types.ts`** — shared TypeScript mirrors of the schemas. `NewBrief` pins `approval_status` to the literal `"pending_approval"`, so auto-approval now fails to compile as well as failing its test.
 - **`tests/approval-gate.test.ts`** and **`tests/server.test.ts`** — 33 new tests covering the gate's invariants in isolation and over the wire.
+- **Continuous integration** (`.github/workflows/ci.yml`) — lint, schema validation, tests and build on Node 18 and 22, for every push and pull request. The README's claim that the safety invariants "fail the build" now has a build to fail.
 
 ### Fixed
 - **Intake instances were single-use (P1).** AJV registers a schema by its `$id` on compile and throws if the same `$id` is compiled twice; `loadSkill()` and `validateBrief()` recompiled on every call, so the *second* call on any instance threw `schema with key or id ... already exists`. Every test constructing a fresh `Intake` had hidden it. Validators are now compiled once and cached — which is what makes a long-lived server possible at all.
@@ -27,6 +28,10 @@ The approval gate stops being a diagram. It is now a module, an HTTP surface, an
 - **Only the first schema error was ever reported.** AJV now runs with `allErrors: true`.
 - **The demo pre-approved its own vault.** `main.ts` wrote an `approvals[]` entry saying the client had approved, while the brief it accompanied was `pending_approval`. Packaging no longer records approvals; a vault leaves intake with `freelancer_access: "none"` and an empty `approvals[]`, and only the gate changes that.
 - **`npm run lint` never linted `src/main.ts` or `src/types.ts`.** The `src/**/*.ts` argument expands to `src/*/*.ts` in a shell without `globstar`, silently skipping every top-level file. Now `eslint src tests --ext .ts`, with tests linted too.
+
+### Security
+- **Dropped the `uuid` dependency.** Its advisory (missing buffer bounds check in v3/v5/v6 when `buf` is supplied) was unreachable here — every call site was `uuidv4()` with no arguments — but `engines` already requires Node ≥18, where `crypto.randomUUID()` is built in. One fewer dependency, and the only production advisory is gone rather than pinned.
+- **Cleared the remaining advisories.** `js-yaml` resolved within range; `@typescript-eslint` moved to v8 to pick up the patched `minimatch`. `npm audit` now reports zero vulnerabilities.
 
 ### Changed
 - `npm start` / `npm run dev` now demonstrate the gate refusing agent self-approval instead of printing a hand-built manifest.

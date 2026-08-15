@@ -1,6 +1,6 @@
 import * as fs from "fs";
+import { randomUUID } from "crypto";
 import { ErrorObject } from "ajv";
-import { v4 as uuidv4 } from "uuid";
 import SchemaValidator from "../validation/SchemaValidator";
 import { NewBrief } from "../types";
 
@@ -256,8 +256,8 @@ export class Intake {
     skill: SkillDefinition,
     response: ClientResponse
   ): GeneratedBrief {
-    const engagementId = `engagement-${uuidv4()}`;
-    const briefId = `brief-${uuidv4()}`;
+    const engagementId = `engagement-${randomUUID()}`;
+    const briefId = `brief-${randomUUID()}`;
 
     const brief: GeneratedBrief = {
       brief_id: briefId,
