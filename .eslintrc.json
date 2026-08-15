@@ -5,5 +5,14 @@
   "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   "env": { "node": true, "es2021": true },
   "parserOptions": { "ecmaVersion": 2021, "sourceType": "module" },
-  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "tests/"]
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "engagements/"],
+  "overrides": [
+    {
+      "files": ["tests/**/*.ts"],
+      "env": { "jest": true },
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    }
+  ]
 }

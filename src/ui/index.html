@@ -1,0 +1,1694 @@
+<!--
+  Approval gate review UI.
+
+  This file is page *content*, not a full document: the Node server in
+  src/server/server.ts wraps it in a doctype/head/body skeleton when serving,
+  and the Artifact host does the same when it is published. Keeping it a
+  fragment means one file serves both, with no duplicated markup to drift.
+
+  It runs in two modes:
+    - Connected: GET /api/engagement, POST /api/decision. The server's
+      ApprovalGate is the only thing that decides.
+    - Offline preview: if there is no server, it falls back to the embedded
+      sample below and mirrors the gate's refusal rules client-side so the
+      page is still explorable. That mirror is a demo convenience — the
+      server is authoritative, and the UI says so on screen.
+-->
+<title>Handover Approval Gate</title>
+
+<style>
+  /* ---- Tokens: light is the complete palette ---------------------------- */
+  :root {
+    --ground: #f2f4f7;
+    --surface: #ffffff;
+    --surface-sunken: #e9edf3;
+    --ink: #131a24;
+    --ink-muted: #5a6675;
+    --ink-faint: #7d8899;
+    --line: #d5dbe3;
+    --line-strong: #bcc5d1;
+    --accent: #2d4a7c;
+    --accent-soft: #e4eaf4;
+
+    --state-pending: #8a5a0f;
+    --state-pending-bg: #fbf0dc;
+    --state-approved: #256640;
+    --state-approved-bg: #dff0e6;
+    --state-rejected: #a83232;
+    --state-rejected-bg: #fae1e1;
+
+    --class-public: #4c5a6b;
+    --class-public-bg: #e7ebf1;
+    --class-internal: #2d4a7c;
+    --class-internal-bg: #e4eaf4;
+    --class-confidential: #8a5a0f;
+    --class-confidential-bg: #fbf0dc;
+    --class-credentials: #a83232;
+    --class-credentials-bg: #fae1e1;
+
+    --shadow: 0 1px 2px rgba(19, 26, 36, 0.06), 0 8px 24px rgba(19, 26, 36, 0.05);
+    --focus: #2d4a7c;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.375rem;
+    --step-3: 1.875rem;
+    --micro: 0.6875rem;
+    --small: 0.8125rem;
+  }
+
+  /* System-dark (no explicit stamp) — tokens only. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e141b;
+      --surface: #161e28;
+      --surface-sunken: #111922;
+      --ink: #e3e9f0;
+      --ink-muted: #8896a8;
+      --ink-faint: #6d7c8e;
+      --line: #26313f;
+      --line-strong: #354354;
+      --accent: #7ba3dc;
+      --accent-soft: #1b2837;
+
+      --state-pending: #e0a63c;
+      --state-pending-bg: #2e2413;
+      --state-approved: #55b37d;
+      --state-approved-bg: #14271d;
+      --state-rejected: #e07070;
+      --state-rejected-bg: #2c1717;
+
+      --class-public: #93a1b3;
+      --class-public-bg: #1b232e;
+      --class-internal: #7ba3dc;
+      --class-internal-bg: #1b2837;
+      --class-confidential: #e0a63c;
+      --class-confidential-bg: #2e2413;
+      --class-credentials: #e07070;
+      --class-credentials-bg: #2c1717;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+      --focus: #7ba3dc;
+    }
+  }
+
+  /* Explicit dark stamp — same tokens, wins over a light OS. */
+  :root[data-theme="dark"] {
+    --ground: #0e141b;
+    --surface: #161e28;
+    --surface-sunken: #111922;
+    --ink: #e3e9f0;
+    --ink-muted: #8896a8;
+    --ink-faint: #6d7c8e;
+    --line: #26313f;
+    --line-strong: #354354;
+    --accent: #7ba3dc;
+    --accent-soft: #1b2837;
+
+    --state-pending: #e0a63c;
+    --state-pending-bg: #2e2413;
+    --state-approved: #55b37d;
+    --state-approved-bg: #14271d;
+    --state-rejected: #e07070;
+    --state-rejected-bg: #2c1717;
+
+    --class-public: #93a1b3;
+    --class-public-bg: #1b232e;
+    --class-internal: #7ba3dc;
+    --class-internal-bg: #1b2837;
+    --class-confidential: #e0a63c;
+    --class-confidential-bg: #2e2413;
+    --class-credentials: #e07070;
+    --class-credentials-bg: #2c1717;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+    --focus: #7ba3dc;
+  }
+
+  /* ---- Base ------------------------------------------------------------- */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  /* ---- Shared bits ------------------------------------------------------ */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  .mono {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.3em 0.65em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .pill::before {
+    content: "";
+    width: 0.45em;
+    height: 0.45em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .pill--pending {
+    color: var(--state-pending);
+    background: var(--state-pending-bg);
+  }
+  .pill--approved {
+    color: var(--state-approved);
+    background: var(--state-approved-bg);
+  }
+  .pill--rejected {
+    color: var(--state-rejected);
+    background: var(--state-rejected-bg);
+  }
+
+  /* ---- Masthead --------------------------------------------------------- */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .masthead h1 {
+    font-size: var(--step-3);
+    font-weight: 640;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin: 0.35rem 0 0;
+    text-wrap: balance;
+  }
+
+  .masthead p {
+    margin: 0.5rem 0 0;
+    color: var(--ink-muted);
+    max-width: 58ch;
+  }
+
+  .ids {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    align-items: flex-start;
+    font-family: var(--mono);
+    font-size: var(--small);
+    color: var(--ink-muted);
+  }
+
+  .ids b {
+    color: var(--ink-faint);
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: var(--micro);
+  }
+
+  /* ---- Summary tiles ---------------------------------------------------- */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .tile__value {
+    font-size: var(--step-2);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+
+  .tile__note {
+    font-size: var(--small);
+    color: var(--ink-muted);
+  }
+
+  /* ---- Notices ---------------------------------------------------------- */
+  .notice {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.9rem 1.15rem;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: var(--small);
+  }
+
+  .notice--warn {
+    border-color: var(--state-pending);
+    background: var(--state-pending-bg);
+    color: var(--state-pending);
+  }
+
+  /* Shown only when there is no gate server behind the page. */
+  .notice--preview {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    border-style: dashed;
+    border-color: var(--line-strong);
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
+  }
+
+  .notice--preview b {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .notice--preview a {
+    color: var(--accent);
+  }
+
+  .notice--preview[hidden] {
+    display: none;
+  }
+
+  .notice ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  /* ---- Two-column body -------------------------------------------------- */
+  .columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .columns {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* The brief reads long; what's leaving should stay on screen beside it. */
+  @media (min-width: 901px) {
+    .panel--vault {
+      position: sticky;
+      top: 1.25rem;
+      max-height: calc(100vh - 2.5rem);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel--vault .panel__body {
+      overflow-y: auto;
+    }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .panel__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1.15rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-sunken);
+  }
+
+  .panel__head h2 {
+    font-size: var(--step-1);
+    font-weight: 620;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .panel__body {
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .field p {
+    margin: 0;
+    max-width: 62ch;
+  }
+
+  .field ul {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-width: 62ch;
+  }
+
+  .field--split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+  }
+
+  /* ---- Vault items ------------------------------------------------------ */
+  .items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .item {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--surface);
+  }
+
+  .item[data-classification="public"] {
+    border-left-color: var(--class-public);
+  }
+  .item[data-classification="internal"] {
+    border-left-color: var(--class-internal);
+  }
+  .item[data-classification="confidential"] {
+    border-left-color: var(--class-confidential);
+  }
+  .item[data-classification="credentials_or_keys"] {
+    border-left-color: var(--class-credentials);
+  }
+
+  .item__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .item__name {
+    font-weight: 600;
+  }
+
+  .item__path {
+    font-family: var(--mono);
+    font-size: var(--small);
+    color: var(--ink-muted);
+  }
+
+  .item__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    font-size: var(--small);
+    color: var(--ink-muted);
+  }
+
+  .item__meta span b {
+    font-weight: 400;
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .item__note {
+    font-size: var(--small);
+    color: var(--ink-muted);
+    margin: 0;
+  }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.25em 0.55em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .chip[data-classification="public"] {
+    color: var(--class-public);
+    background: var(--class-public-bg);
+  }
+  .chip[data-classification="internal"] {
+    color: var(--class-internal);
+    background: var(--class-internal-bg);
+  }
+  .chip[data-classification="confidential"] {
+    color: var(--class-confidential);
+    background: var(--class-confidential-bg);
+  }
+  .chip[data-classification="credentials_or_keys"] {
+    color: var(--class-credentials);
+    background: var(--class-credentials-bg);
+  }
+
+  /* ---- Access grants ---------------------------------------------------- */
+  .grants {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .grant {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface-sunken);
+    border-radius: 4px;
+    font-size: var(--small);
+  }
+
+  .grant__system {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .grant__scope {
+    color: var(--ink-muted);
+  }
+
+  /* ---- The gate --------------------------------------------------------- */
+  .gate {
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .gate__head {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-sunken);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .gate__head h2 {
+    margin: 0;
+    font-size: var(--step-1);
+    font-weight: 620;
+    letter-spacing: -0.01em;
+  }
+
+  .gate__head p {
+    margin: 0;
+    font-size: var(--small);
+    color: var(--ink-muted);
+    max-width: 62ch;
+  }
+
+  .gate__body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.6fr) minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .form-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  input,
+  select,
+  textarea {
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0.55rem 0.7rem;
+    width: 100%;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 4.5rem;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--ink-faint);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  button {
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 0.6rem 1.15rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+  }
+
+  .btn--approve {
+    background: var(--state-approved);
+    color: var(--surface);
+  }
+
+  .btn--reject {
+    background: transparent;
+    color: var(--state-rejected);
+    border-color: var(--state-rejected);
+  }
+
+  .btn--ghost {
+    background: transparent;
+    color: var(--ink-muted);
+    border-color: var(--line-strong);
+  }
+
+  button:hover:not(:disabled) {
+    opacity: 0.86;
+  }
+
+  button:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+
+  .gate__result {
+    font-size: var(--small);
+    padding: 0.75rem 0.95rem;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+
+  .gate__result[data-tone="error"] {
+    color: var(--state-rejected);
+    background: var(--state-rejected-bg);
+    border-color: var(--state-rejected);
+  }
+
+  .gate__result[data-tone="ok"] {
+    color: var(--state-approved);
+    background: var(--state-approved-bg);
+    border-color: var(--state-approved);
+  }
+
+  .gate__result[data-tone="info"] {
+    color: var(--ink-muted);
+    background: var(--surface-sunken);
+  }
+
+  .gate__result:empty {
+    display: none;
+  }
+
+  /* Once decided, the form is history — it recedes, the outcome stays. */
+  .gate[data-decided="true"] .form-row,
+  .gate[data-decided="true"] .gate__body > label {
+    opacity: 0.45;
+  }
+
+  /* ---- Audit log -------------------------------------------------------- */
+  .log {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .log__entry {
+    display: grid;
+    grid-template-columns: minmax(150px, auto) minmax(110px, auto) minmax(0, 1fr);
+    gap: 0.5rem 1.25rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: var(--small);
+    align-items: baseline;
+  }
+
+  .log__entry:last-child {
+    border-bottom: none;
+  }
+
+  @media (max-width: 720px) {
+    .log__entry {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.2rem;
+    }
+  }
+
+  .log__time,
+  .log__actor {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .log__action {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .log__details {
+    color: var(--ink-muted);
+  }
+
+  .scroll-x {
+    overflow-x: auto;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.25rem;
+    font-size: var(--small);
+    color: var(--ink-faint);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  footer code {
+    font-family: var(--mono);
+    color: var(--ink-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Handover Agent · approval gate</p>
+      <h1>Review before it leaves</h1>
+      <p>
+        The agent collected and packaged this engagement. Nothing reaches the
+        freelancer until a person here approves it.
+      </p>
+    </div>
+    <div class="ids">
+      <span id="client-row" hidden><b>Client</b><br /><span id="client-name">—</span></span>
+      <span><b>Engagement</b><br /><span id="engagement-id">—</span></span>
+      <span><b>Brief</b><br /><span id="brief-id">—</span></span>
+    </div>
+  </header>
+
+  <div class="notice notice--preview" id="preview-banner" hidden>
+    <b>Preview</b>
+    <span>
+      No gate server behind this page. The buttons work and mirror the gate's
+      refusal rules so you can see what it does, but those rules are enforced by
+      <code>src/approval/ApprovalGate.ts</code> on the server — not by this
+      browser. Nothing here is written anywhere.
+    </span>
+    <a href="https://github.com/jb0ta/handover-agent">Source on GitHub</a>
+  </div>
+
+  <section class="summary" aria-label="Engagement summary">
+    <div class="tile">
+      <p class="eyebrow">Status</p>
+      <span class="tile__value" id="tile-status">
+        <span class="pill pill--pending">pending</span>
+      </span>
+      <span class="tile__note" id="tile-status-note">Awaiting a human decision</span>
+    </div>
+    <div class="tile">
+      <p class="eyebrow">Materials in vault</p>
+      <span class="tile__value mono" id="tile-items">—</span>
+      <span class="tile__note" id="tile-items-note">Collected by intake</span>
+    </div>
+    <div class="tile">
+      <p class="eyebrow">Most sensitive item</p>
+      <span class="tile__value" id="tile-classification">—</span>
+      <span class="tile__note" id="tile-classification-note">Highest classification present</span>
+    </div>
+    <div class="tile">
+      <p class="eyebrow">Freelancer access</p>
+      <span class="tile__value mono" id="tile-access">—</span>
+      <span class="tile__note" id="tile-access-note">Until the vault expires</span>
+    </div>
+  </section>
+
+  <div id="findings"></div>
+
+  <div class="columns">
+    <section class="panel" aria-labelledby="brief-heading">
+      <div class="panel__head">
+        <h2 id="brief-heading">What they're asking for</h2>
+        <span class="eyebrow" id="brief-skill">—</span>
+      </div>
+      <div class="panel__body">
+        <div class="field">
+          <p class="eyebrow">Objective</p>
+          <p id="brief-objective">—</p>
+        </div>
+        <div class="field">
+          <p class="eyebrow">Where they are now</p>
+          <p id="brief-situation">—</p>
+        </div>
+        <div class="field">
+          <p class="eyebrow">What "done" looks like</p>
+          <p id="brief-desired">—</p>
+        </div>
+        <div class="field">
+          <p class="eyebrow">In scope</p>
+          <p id="brief-scope">—</p>
+        </div>
+        <div class="field">
+          <p class="eyebrow">Explicitly out of scope</p>
+          <ul id="brief-out-of-scope"></ul>
+        </div>
+        <div class="field">
+          <p class="eyebrow">Constraints</p>
+          <ul id="brief-constraints"></ul>
+        </div>
+        <div class="field">
+          <p class="eyebrow">Risks the client flagged</p>
+          <ul id="brief-risks"></ul>
+        </div>
+        <div class="field">
+          <p class="eyebrow">Still unanswered</p>
+          <ul id="brief-questions"></ul>
+        </div>
+        <div class="field">
+          <p class="eyebrow">Success criteria</p>
+          <ul id="brief-success"></ul>
+        </div>
+        <div class="field field--split">
+          <div class="field">
+            <p class="eyebrow">Estimated productive time</p>
+            <span class="mono" id="brief-time">—</span>
+          </div>
+          <div class="field">
+            <p class="eyebrow">Brief created</p>
+            <span class="mono" id="brief-created">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel--vault" aria-labelledby="vault-heading">
+      <div class="panel__head">
+        <h2 id="vault-heading">What would leave their control</h2>
+        <span class="eyebrow" id="vault-scope">—</span>
+      </div>
+      <div class="panel__body">
+        <div class="field">
+          <p class="eyebrow">Materials</p>
+          <div class="items" id="vault-items"></div>
+        </div>
+        <div class="field">
+          <p class="eyebrow">System access granted</p>
+          <div class="grants" id="vault-grants"></div>
+        </div>
+        <div class="field field--split">
+          <div class="field">
+            <p class="eyebrow">Vault expires</p>
+            <span class="mono" id="vault-expires">—</span>
+          </div>
+          <div class="field">
+            <p class="eyebrow">On expiry</p>
+            <span class="mono" id="vault-on-expiry">—</span>
+          </div>
+          <div class="field">
+            <p class="eyebrow">Client can revoke</p>
+            <span class="mono" id="vault-revoke">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="gate" id="gate" aria-labelledby="gate-heading">
+    <div class="gate__head">
+      <div>
+        <h2 id="gate-heading">Your decision</h2>
+        <p>
+          Recorded against your name in the vault's audit log. The gate refuses
+          an automated identity, and a brief can only be decided once.
+        </p>
+      </div>
+      <span class="pill pill--pending" id="gate-state">pending</span>
+    </div>
+    <div class="gate__body">
+      <div class="form-row">
+        <label for="approver-role">
+          Approving as
+          <select id="approver-role">
+            <option value="client">Client</option>
+            <option value="admin">Admin</option>
+            <option value="freelancer">Freelancer</option>
+          </select>
+        </label>
+        <label for="approver-name">
+          Your name
+          <input
+            id="approver-name"
+            type="text"
+            autocomplete="name"
+            placeholder="The person accountable for this decision"
+          />
+        </label>
+      </div>
+      <label for="approver-notes">
+        Notes (optional)
+        <textarea
+          id="approver-notes"
+          placeholder="Anything a future reader of the audit log should know — what you checked, what you excluded."
+        ></textarea>
+      </label>
+      <div class="actions">
+        <button type="button" class="btn--approve" id="btn-approve" disabled>
+          Approve handover
+        </button>
+        <button type="button" class="btn--reject" id="btn-reject" disabled>
+          Reject
+        </button>
+        <button type="button" class="btn--ghost" id="btn-reset">
+          Load a fresh engagement
+        </button>
+      </div>
+      <p class="gate__result" id="gate-result" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="log-heading">
+    <div class="panel__head">
+      <h2 id="log-heading">Audit log</h2>
+      <span class="eyebrow">Append-only</span>
+    </div>
+    <div class="panel__body">
+      <div class="scroll-x">
+        <div class="log" id="audit-log"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span id="mode-note">Connecting…</span>
+    <span
+      >Schemas are the source of truth:
+      <code>schemas/brief.schema.json</code>,
+      <code>schemas/vault-manifest.schema.json</code>.</span
+    >
+  </footer>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+
+    // ---- Offline sample -------------------------------------------------
+    // Used only when there is no server to talk to, so the page is still
+    // explorable as a static preview. Mirrors what src/demo/demoEngagement.ts
+    // produces.
+    var OFFLINE_STATE = {
+      brief: {
+        brief_id: "brief-4f21c0de-9a77-4d0e-b3aa-1c6f2f8e1b04",
+        engagement_id: "engagement-8c3d17ba-52e9-4c61-9f0a-77b2d4e5a913",
+        skill: "workflow-automation-review",
+        created_at: "2026-08-15T09:12:44.000Z",
+        client_name: "TechFlow Inc.",
+        client_objective:
+          "Make our main lead-capture workflow 30% faster and more reliable",
+        current_situation:
+          "We run a webhook-triggered n8n workflow that collects form submissions, validates them, enriches with company data via API, and logs to Pipedrive. It works, but often times out on large batches and sometimes loses data.",
+        desired_result:
+          "A faster, more resilient workflow that can handle 500+ leads per day without timeouts or data loss. We want clear error handling and retry logic.",
+        scope:
+          "Review and fix the existing workflow, apply one key optimization, and document the changes.",
+        out_of_scope: [
+          "Complete rewrite of the workflow",
+          "Integration with new platforms"
+        ],
+        constraints: [
+          "No downtime during the fix (we need the workflow running)",
+          "Changes must be compatible with our existing Pipedrive setup"
+        ],
+        source_materials: [],
+        access_provided: [
+          {
+            system: "n8n",
+            scope: "read-only access to the workflow and logs",
+            expires_at: "2026-08-22T09:12:44.000Z"
+          }
+        ],
+        risks: [
+          "The workflow handles sensitive lead data; changes must not compromise privacy",
+          "Any timeout during the fix could cause duplicate leads; needs careful testing"
+        ],
+        open_questions: [
+          "Can we use a paid n8n node to improve performance, or must we stick to free nodes?",
+          "What's the acceptable data latency for lead logging?"
+        ],
+        success_criteria: [
+          "Workflow can process 500+ leads without timeouts",
+          "Error rate < 0.5%",
+          "No data loss on any lead",
+          "Changes are documented with rollback plan"
+        ],
+        estimated_productive_time_minutes: 120,
+        approval_status: "pending_approval"
+      },
+      vault: {
+        engagement_id: "engagement-8c3d17ba-52e9-4c61-9f0a-77b2d4e5a913",
+        brief_id: "brief-4f21c0de-9a77-4d0e-b3aa-1c6f2f8e1b04",
+        vault_path:
+          "/engagements/engagement-8c3d17ba-52e9-4c61-9f0a-77b2d4e5a913/vault",
+        scope: "per-engagement",
+        created_at: "2026-08-15T09:12:44.000Z",
+        expires_at: "2026-08-29T09:12:44.000Z",
+        items: [
+          {
+            item_id: "item-1a2b3c4d-5e6f-4708-9a0b-1c2d3e4f5061",
+            name: "Lead workflow export",
+            type: "file",
+            path: "lead-workflow.json",
+            provenance: "Client export from n8n",
+            collected_at: "2026-08-15T09:12:44.000Z",
+            collection_method: "user_upload",
+            classification: "internal",
+            access_restrictions: ["freelancer_only"],
+            notes:
+              "Contains workflow logic and API endpoints. Do not share externally."
+          },
+          {
+            item_id: "item-2b3c4d5e-6f70-4819-a0b1-c2d3e4f50617",
+            name: "Error log (last 7 days)",
+            type: "file",
+            path: "error-log.csv",
+            provenance: "Client export from n8n logs",
+            collected_at: "2026-08-15T09:12:44.000Z",
+            collection_method: "user_upload",
+            classification: "confidential",
+            access_restrictions: ["freelancer_only"],
+            notes: "Contains timestamps and error details. May contain PII."
+          }
+        ],
+        access_control: {
+          freelancer_access: "none",
+          client_access: "revoke_anytime",
+          audit_access: "log_only"
+        },
+        audit_log: [
+          {
+            timestamp: "2026-08-15T09:12:44.000Z",
+            actor: "system",
+            action: "vault_created",
+            details:
+              "Vault created for engagement engagement-8c3d17ba-52e9-4c61-9f0a-77b2d4e5a913",
+            item_ids: []
+          },
+          {
+            timestamp: "2026-08-15T09:12:44.000Z",
+            actor: "agent_intake",
+            action: "items_collected",
+            details: "2 item(s) from the client response added to the vault",
+            item_ids: [
+              "item-1a2b3c4d-5e6f-4708-9a0b-1c2d3e4f5061",
+              "item-2b3c4d5e-6f70-4819-a0b1-c2d3e4f50617"
+            ]
+          }
+        ],
+        revocation_conditions: {
+          automatic_expiry_utc: "2026-08-29T09:12:44.000Z",
+          manual_revocation_by_client: true,
+          on_expiry_action: "lock_read_only",
+          retention_after_expiry: "90d"
+        },
+        approvals: []
+      },
+      intake_findings: { missing: [], warnings: [] }
+    };
+    OFFLINE_STATE.brief.source_materials = OFFLINE_STATE.vault.items.map(
+      function (item) {
+        return {
+          name: item.name,
+          type: item.type,
+          location: item.path,
+          provenance: item.provenance,
+          collected_at: item.collected_at
+        };
+      }
+    );
+
+    var NON_HUMAN_TOKENS = [
+      "agent", "agents", "ai", "assistant", "automated", "automation", "bot",
+      "bots", "claude", "cron", "daemon", "gpt", "llm", "noreply", "robot",
+      "script", "service", "system"
+    ];
+
+    var CLASSIFICATION_ORDER = [
+      "public",
+      "internal",
+      "confidential",
+      "credentials_or_keys"
+    ];
+
+    var state = null;
+    var connected = false;
+
+    // ---- Helpers --------------------------------------------------------
+    var $ = function (id) {
+      return document.getElementById(id);
+    };
+
+    function text(id, value) {
+      $(id).textContent = value == null || value === "" ? "—" : String(value);
+    }
+
+    function list(id, values, empty) {
+      var host = $(id);
+      host.textContent = "";
+      if (!values || values.length === 0) {
+        var li = document.createElement("li");
+        li.textContent = empty || "None recorded";
+        li.style.color = "var(--ink-faint)";
+        host.appendChild(li);
+        return;
+      }
+      values.forEach(function (value) {
+        var li = document.createElement("li");
+        li.textContent = value;
+        host.appendChild(li);
+      });
+    }
+
+    function humanise(value) {
+      return String(value || "").replace(/_/g, " ");
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "—";
+      var date = new Date(iso);
+      if (isNaN(date.getTime())) return iso;
+      return date.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+    }
+
+    function daysUntil(iso) {
+      var ms = new Date(iso).getTime() - Date.now();
+      if (isNaN(ms)) return null;
+      return Math.round(ms / (24 * 60 * 60 * 1000));
+    }
+
+    function statusClass(status) {
+      if (status === "approved") return "pill pill--approved";
+      if (status === "rejected") return "pill pill--rejected";
+      return "pill pill--pending";
+    }
+
+    function statusLabel(status) {
+      if (status === "approved") return "approved";
+      if (status === "rejected") return "rejected";
+      return "pending";
+    }
+
+    function looksAutomated(name) {
+      return String(name)
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean)
+        .some(function (token) {
+          return NON_HUMAN_TOKENS.indexOf(token) !== -1;
+        });
+    }
+
+    function setResult(message, tone) {
+      var host = $("gate-result");
+      host.textContent = message || "";
+      if (tone) {
+        host.setAttribute("data-tone", tone);
+      } else {
+        host.removeAttribute("data-tone");
+      }
+    }
+
+    // ---- Rendering ------------------------------------------------------
+    function render() {
+      var brief = state.brief;
+      var vault = state.vault;
+
+      if (brief.client_name) {
+        text("client-name", brief.client_name);
+        $("client-row").hidden = false;
+      } else {
+        $("client-row").hidden = true;
+      }
+      text("engagement-id", brief.engagement_id);
+      text("brief-id", brief.brief_id);
+      text("brief-skill", brief.skill);
+
+      var pill = statusClass(brief.approval_status);
+      $("tile-status").innerHTML = "";
+      var statusPill = document.createElement("span");
+      statusPill.className = pill;
+      statusPill.textContent = statusLabel(brief.approval_status);
+      $("tile-status").appendChild(statusPill);
+
+      var gatePill = $("gate-state");
+      gatePill.className = pill;
+      gatePill.textContent = statusLabel(brief.approval_status);
+
+      text(
+        "tile-status-note",
+        brief.approval_status === "pending_approval"
+          ? "Awaiting a human decision"
+          : "Decided " + formatDate(brief.approved_at)
+      );
+
+      text("tile-items", String(vault.items.length));
+      var confidentialCount = vault.items.filter(function (item) {
+        return (
+          CLASSIFICATION_ORDER.indexOf(item.classification) >=
+          CLASSIFICATION_ORDER.indexOf("confidential")
+        );
+      }).length;
+      text(
+        "tile-items-note",
+        confidentialCount === 0
+          ? "None classified confidential"
+          : confidentialCount + " confidential or higher"
+      );
+
+      var highest = vault.items.reduce(function (acc, item) {
+        var index = CLASSIFICATION_ORDER.indexOf(item.classification);
+        return index > acc ? index : acc;
+      }, -1);
+      var highestName =
+        highest >= 0 ? CLASSIFICATION_ORDER[highest] : "unclassified";
+      $("tile-classification").innerHTML = "";
+      var classChip = document.createElement("span");
+      classChip.className = "chip";
+      classChip.setAttribute("data-classification", highestName);
+      classChip.textContent = humanise(highestName);
+      $("tile-classification").appendChild(classChip);
+
+      var access =
+        (vault.access_control && vault.access_control.freelancer_access) ||
+        "none";
+      text("tile-access", humanise(access));
+      var remaining = daysUntil(vault.expires_at);
+      text(
+        "tile-access-note",
+        access === "none"
+          ? "Nothing released yet"
+          : remaining === null
+            ? "Until the vault expires"
+            : "Expires in " + remaining + " day" + (remaining === 1 ? "" : "s")
+      );
+
+      text("brief-objective", brief.client_objective);
+      text("brief-situation", brief.current_situation);
+      text("brief-desired", brief.desired_result);
+      text("brief-scope", brief.scope);
+      list("brief-out-of-scope", brief.out_of_scope, "Nothing excluded");
+      list("brief-constraints", brief.constraints, "No constraints given");
+      list("brief-risks", brief.risks, "No risks flagged");
+      list("brief-questions", brief.open_questions, "Nothing outstanding");
+      list("brief-success", brief.success_criteria);
+      text(
+        "brief-time",
+        brief.estimated_productive_time_minutes + " min billable"
+      );
+      text("brief-created", formatDate(brief.created_at));
+
+      text("vault-scope", humanise(vault.scope));
+      text("vault-expires", formatDate(vault.expires_at));
+      text(
+        "vault-on-expiry",
+        humanise(
+          (vault.revocation_conditions &&
+            vault.revocation_conditions.on_expiry_action) ||
+            "—"
+        )
+      );
+      text(
+        "vault-revoke",
+        vault.revocation_conditions &&
+          vault.revocation_conditions.manual_revocation_by_client
+          ? "yes, anytime"
+          : "no"
+      );
+
+      renderItems(vault.items);
+      renderGrants(brief.access_provided);
+      renderFindings(state.intake_findings);
+      renderLog(vault.audit_log);
+
+      var decided = brief.approval_status !== "pending_approval";
+      $("gate").setAttribute("data-decided", String(decided));
+      $("btn-approve").disabled = decided || !$("approver-name").value.trim();
+      $("btn-reject").disabled = decided || !$("approver-name").value.trim();
+      $("approver-name").disabled = decided;
+      $("approver-role").disabled = decided;
+      $("approver-notes").disabled = decided;
+    }
+
+    function renderItems(items) {
+      var host = $("vault-items");
+      host.textContent = "";
+
+      items.forEach(function (item) {
+        var card = document.createElement("div");
+        card.className = "item";
+        card.setAttribute("data-classification", item.classification || "public");
+
+        var top = document.createElement("div");
+        top.className = "item__top";
+
+        var titleWrap = document.createElement("div");
+        var name = document.createElement("div");
+        name.className = "item__name";
+        name.textContent = item.name;
+        var path = document.createElement("div");
+        path.className = "item__path";
+        path.textContent = item.path;
+        titleWrap.appendChild(name);
+        titleWrap.appendChild(path);
+
+        var chip = document.createElement("span");
+        chip.className = "chip";
+        chip.setAttribute("data-classification", item.classification || "public");
+        chip.textContent = humanise(item.classification || "unclassified");
+
+        top.appendChild(titleWrap);
+        top.appendChild(chip);
+        card.appendChild(top);
+
+        var meta = document.createElement("div");
+        meta.className = "item__meta";
+        [
+          ["Provenance", item.provenance],
+          ["Collected", humanise(item.collection_method)],
+          [
+            "Visible to",
+            (item.access_restrictions || []).map(humanise).join(", ") ||
+              "unrestricted"
+          ]
+        ].forEach(function (pair) {
+          var span = document.createElement("span");
+          var label = document.createElement("b");
+          label.textContent = pair[0] + " ";
+          span.appendChild(label);
+          span.appendChild(document.createTextNode(pair[1]));
+          meta.appendChild(span);
+        });
+        card.appendChild(meta);
+
+        if (item.notes) {
+          var note = document.createElement("p");
+          note.className = "item__note";
+          note.textContent = item.notes;
+          card.appendChild(note);
+        }
+
+        host.appendChild(card);
+      });
+    }
+
+    function renderGrants(grants) {
+      var host = $("vault-grants");
+      host.textContent = "";
+
+      if (!grants || grants.length === 0) {
+        var empty = document.createElement("p");
+        empty.className = "item__note";
+        empty.textContent = "No system access granted.";
+        host.appendChild(empty);
+        return;
+      }
+
+      grants.forEach(function (grant) {
+        var row = document.createElement("div");
+        row.className = "grant";
+
+        var system = document.createElement("span");
+        system.className = "grant__system";
+        system.textContent = grant.system;
+
+        var scope = document.createElement("span");
+        scope.className = "grant__scope";
+        scope.textContent = grant.scope;
+
+        row.appendChild(system);
+        row.appendChild(scope);
+
+        if (grant.expires_at) {
+          var expiry = document.createElement("span");
+          expiry.className = "grant__scope mono";
+          expiry.textContent = "Revoked " + formatDate(grant.expires_at);
+          row.appendChild(expiry);
+        }
+
+        host.appendChild(row);
+      });
+    }
+
+    function renderFindings(findings) {
+      var host = $("findings");
+      host.textContent = "";
+      if (!findings) return;
+
+      var entries = (findings.missing || []).concat(findings.warnings || []);
+      if (entries.length === 0) return;
+
+      var notice = document.createElement("div");
+      notice.className = "notice notice--warn";
+      var heading = document.createElement("strong");
+      heading.textContent = "Intake flagged " + entries.length + " thing" +
+        (entries.length === 1 ? "" : "s") + " before you decide";
+      notice.appendChild(heading);
+
+      var ul = document.createElement("ul");
+      entries.forEach(function (entry) {
+        var li = document.createElement("li");
+        li.textContent = entry;
+        ul.appendChild(li);
+      });
+      notice.appendChild(ul);
+      host.appendChild(notice);
+    }
+
+    function renderLog(entries) {
+      var host = $("audit-log");
+      host.textContent = "";
+
+      entries.forEach(function (entry) {
+        var row = document.createElement("div");
+        row.className = "log__entry";
+
+        var time = document.createElement("span");
+        time.className = "log__time";
+        time.textContent = formatDate(entry.timestamp);
+
+        var action = document.createElement("span");
+        action.className = "log__action";
+        action.textContent = humanise(entry.action);
+
+        var details = document.createElement("span");
+        details.className = "log__details";
+        var actor = document.createElement("span");
+        actor.className = "log__actor";
+        actor.textContent = entry.actor + " — ";
+        details.appendChild(actor);
+        details.appendChild(document.createTextNode(entry.details));
+
+        row.appendChild(time);
+        row.appendChild(action);
+        row.appendChild(details);
+        host.appendChild(row);
+      });
+    }
+
+    // ---- Decisions ------------------------------------------------------
+    function decideOffline(decision, role, name, notes) {
+      // Mirrors ApprovalGate for the static preview only. When a server is
+      // present it decides, and this never runs.
+      if (looksAutomated(name)) {
+        throw new Error(
+          '"' + name + '" looks like an automated identity. ' +
+            "A handover must be approved by a person."
+        );
+      }
+      if (state.brief.approval_status !== "pending_approval") {
+        throw new Error(
+          "Brief " + state.brief.brief_id + ' is already "' +
+            state.brief.approval_status +
+            '". A decision cannot be changed; raise a new engagement instead.'
+        );
+      }
+
+      var approved = decision === "approved";
+      var at = new Date().toISOString();
+      var entry = {
+        timestamp: at,
+        actor: role + ":" + name,
+        action: approved ? "approved" : "rejected",
+        item_ids: state.vault.items.map(function (item) {
+          return item.item_id;
+        }),
+        details:
+          (approved
+            ? "Handover approved by " + name + " (" + role + "). " +
+              state.vault.items.length + " item(s) released to the freelancer."
+            : "Handover rejected by " + name + " (" + role + "). " +
+              "No items released; freelancer access set to none.") +
+          (notes ? " Note: " + notes : "")
+      };
+
+      state.brief.approval_status = approved ? "approved" : "rejected";
+      state.brief.approved_at = at;
+      state.vault.audit_log = state.vault.audit_log.concat([entry]);
+      state.vault.access_control.freelancer_access = approved
+        ? "read_only"
+        : "none";
+      if (approved) {
+        state.vault.approvals = (state.vault.approvals || []).concat([
+          {
+            approver: role,
+            approved_at: at,
+            approval_type: "handover_use",
+            notes: notes || "Approved by " + name + " at the gate."
+          }
+        ]);
+      }
+    }
+
+    async function decide(decision) {
+      var role = $("approver-role").value;
+      var name = $("approver-name").value.trim();
+      var notes = $("approver-notes").value.trim();
+
+      setResult("", null);
+
+      if (!connected) {
+        try {
+          decideOffline(decision, role, name, notes);
+        } catch (error) {
+          setResult(error.message, "error");
+          return;
+        }
+        render();
+        setResult(
+          "Recorded in this preview only — no server is connected, so nothing " +
+            "was written to disk.",
+          decision === "approved" ? "ok" : "info"
+        );
+        return;
+      }
+
+      try {
+        var response = await fetch("/api/decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            decision: decision,
+            approver_role: role,
+            approver_name: name,
+            notes: notes || undefined
+          })
+        });
+        var payload = await response.json();
+
+        if (!response.ok) {
+          setResult(payload.error || "The gate refused this decision.", "error");
+          return;
+        }
+
+        state = payload;
+        render();
+        setResult(
+          (decision === "approved"
+            ? "Approved. The handover is released and the vault is now read-only for the freelancer."
+            : "Rejected. Nothing was released and freelancer access is set to none.") +
+            " Written to " + payload.written_to + "/",
+          decision === "approved" ? "ok" : "info"
+        );
+      } catch (error) {
+        setResult("Could not reach the gate: " + error.message, "error");
+      }
+    }
+
+    async function reset() {
+      setResult("", null);
+      if (!connected) {
+        state = JSON.parse(JSON.stringify(OFFLINE_STATE));
+        render();
+        setResult("Loaded the sample engagement again.", "info");
+        return;
+      }
+      try {
+        var response = await fetch("/api/reset", { method: "POST" });
+        state = await response.json();
+        render();
+        setResult("Loaded a fresh engagement.", "info");
+      } catch (error) {
+        setResult("Could not reach the gate: " + error.message, "error");
+      }
+    }
+
+    // ---- Boot -----------------------------------------------------------
+    function bindEvents() {
+      $("approver-name").addEventListener("input", function () {
+        var decided = state.brief.approval_status !== "pending_approval";
+        var hasName = Boolean(this.value.trim());
+        $("btn-approve").disabled = decided || !hasName;
+        $("btn-reject").disabled = decided || !hasName;
+      });
+      $("btn-approve").addEventListener("click", function () {
+        decide("approved");
+      });
+      $("btn-reject").addEventListener("click", function () {
+        decide("rejected");
+      });
+      $("btn-reset").addEventListener("click", reset);
+    }
+
+    async function boot() {
+      try {
+        var response = await fetch("/api/engagement", {
+          headers: { Accept: "application/json" }
+        });
+        if (!response.ok) throw new Error("status " + response.status);
+        state = await response.json();
+        connected = true;
+        $("mode-note").textContent =
+          "Connected to the approval gate. Decisions are enforced by " +
+          "src/approval/ApprovalGate.ts and written to engagements/.";
+      } catch (error) {
+        state = JSON.parse(JSON.stringify(OFFLINE_STATE));
+        connected = false;
+        $("preview-banner").hidden = false;
+        $("mode-note").textContent =
+          "Static preview of the review UI. Run `npm run gate` in the repo to " +
+          "use it against a real engagement.";
+      }
+      bindEvents();
+      render();
+    }
+
+    boot();
+  })();
+</script>

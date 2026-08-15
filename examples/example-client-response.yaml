@@ -1,0 +1,91 @@
+# Client response — copy this file and fill it in with the client's own words.
+#
+#   cp examples/example-client-response.yaml my-client.yaml
+#   npm run gate -- --skill ./skills/my-skill.yaml --response ./my-client.yaml
+#
+# Intake checks this against the skill's `what_i_need` and tells you what is
+# missing before you decide. Everything here ends up in the brief the
+# freelancer reads, except the per-material `classification`, `notes` and
+# `access_restrictions`, which belong to the vault.
+#
+# This is the worked example used when no --response is given.
+
+client_name: TechFlow Inc.
+
+# What are they trying to achieve? One sentence. (10–500 chars)
+client_objective: Make our main lead-capture workflow 30% faster and more reliable
+
+# Where are they now? The context a freelancer needs to start. (10–1000 chars)
+current_situation: >-
+  We run a webhook-triggered n8n workflow that collects form submissions,
+  validates them, enriches with company data via API, and logs to Pipedrive.
+  It works, but often times out on large batches and sometimes loses data.
+
+# What does "done" look like? (10–500 chars)
+desired_result: >-
+  A faster, more resilient workflow that can handle 500+ leads per day without
+  timeouts or data loss. We want clear error handling and retry logic.
+
+# What IS included in this engagement. (10–500 chars)
+scope: >-
+  Review and fix the existing workflow, apply one key optimization, and
+  document the changes.
+
+# What is explicitly NOT included. Protects both sides.
+out_of_scope:
+  - Complete rewrite of the workflow
+  - Integration with new platforms
+
+constraints:
+  - No downtime during the fix (we need the workflow running)
+  - Changes must be compatible with our existing Pipedrive setup
+
+# Materials the client is handing over.
+#
+# classification:       public | internal | confidential | credentials_or_keys
+# access_restrictions:  client_only | freelancer_only | both_with_approval | audit_log_only
+#
+# Classify honestly — it is what the reviewer sees at the gate, and what
+# decides how alarming the item looks before anything is released.
+source_materials:
+  - name: Lead workflow export
+    type: file
+    location: lead-workflow.json
+    provenance: Client export from n8n
+    classification: internal
+    access_restrictions: [freelancer_only]
+    notes: Contains workflow logic and API endpoints. Do not share externally.
+
+  - name: Error log (last 7 days)
+    type: file
+    location: error-log.csv
+    provenance: Client export from n8n logs
+    classification: confidential
+    access_restrictions: [freelancer_only]
+    notes: Contains timestamps and error details. May contain PII.
+
+# System access granted for the engagement.
+#
+# Describe the SCOPE, never paste the secret. Real credentials belong in a
+# secrets store, referenced by handle — see docs/threat-model.md, T5.
+access_provided:
+  - system: n8n
+    scope: read-only access to the workflow and logs
+    expires_at: "2026-08-22T09:12:44.000Z"
+
+risks:
+  - The workflow handles sensitive lead data; changes must not compromise privacy
+  - Any timeout during the fix could cause duplicate leads; needs careful testing
+
+open_questions:
+  - Can we use a paid n8n node to improve performance, or must we stick to free nodes?
+  - What's the acceptable data latency for lead logging?
+
+success_criteria:
+  - Workflow can process 500+ leads without timeouts
+  - Error rate < 0.5%
+  - No data loss on any lead
+  - Changes are documented with rollback plan
+
+# Focused working time, in minutes. Schema allows 30–480.
+estimated_productive_time_minutes: 120

@@ -50,5 +50,6 @@
     "Fix list with priorities delivered",
     "Quick-win fix applied, tested, and documented",
     "Client has approved the return handover"
-  ]
+  ],
+  "notes": "This skill assumes the workflow is already partially functional.\nIf the workflow is broken or completely untested, a scoping conversation\nis recommended to reset expectations (may require more than 2 hours).\n"
 }

@@ -1,6 +1,9 @@
-import * as fs from "fs";
-import Ajv, { ErrorObject } from "ajv";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
+import { ErrorObject } from "ajv";
+import SchemaValidator from "../validation/SchemaValidator";
+import loadDocument from "../io/loadDocument";
+import { AccessRestriction, Classification } from "../types";
+import { NewBrief } from "../types";
 
 /**
  * Intake: skill-driven client brief collection
@@ -9,7 +12,31 @@ import { v4 as uuidv4 } from "uuid";
  * validates against the brief schema, and outputs a structured brief JSON.
  */
 
-interface SkillDefinition {
+/**
+ * A `what_i_need` entry that asks for access to a system rather than for a
+ * file or a piece of text. Matched against the need's own wording.
+ */
+const ACCESS_NEED_PATTERN = /\baccess\b|\bcredential|\blogin\b|\bpermission/i;
+
+/**
+ * Wording that suggests personal data may be in scope.
+ *
+ * A heuristic, and deliberately a broad one — a false warning costs the
+ * reviewer a glance, a missed one costs the client. It cannot catch a brief
+ * that describes personal data without naming it.
+ */
+const PII_HINT_PATTERN =
+  /\bcustomers?\b|\busers?\b|\bpatients?\b|\bemployees?\b|\bpersonal (data|information)\b|\bpii\b|\bemail addresses\b|\bphone numbers\b|\bdate of birth\b/i;
+
+export interface SkillSecurityRequirements {
+  vault_scope?: string;
+  data_retention?: string;
+  approval_required_before_external_action?: boolean;
+  no_production_credentials?: boolean;
+  no_pii_unless_required?: boolean;
+}
+
+export interface SkillDefinition {
   skill: string;
   version: string;
   provider?: string;
@@ -19,6 +46,7 @@ interface SkillDefinition {
   accepted_file_types?: string[];
   exclusions?: string[];
   deliverables?: string[];
+  security_requirements?: SkillSecurityRequirements;
 }
 
 export interface ResponseSourceMaterial {
@@ -27,6 +55,14 @@ export interface ResponseSourceMaterial {
   location: string;
   provenance: string;
   collected_at?: string;
+  /**
+   * Vault handling for this material. Sensitivity is a property of the thing
+   * itself, so it is declared where the material is declared — but it belongs
+   * to the vault, not the brief, and is stripped before the brief is built.
+   */
+  classification?: Classification;
+  access_restrictions?: AccessRestriction[];
+  notes?: string;
 }
 
 export interface ResponseAccessGrant {
@@ -54,81 +90,40 @@ export interface ClientResponse {
   notes?: string;
 }
 
-interface GeneratedBrief {
-  brief_id: string;
-  engagement_id: string;
-  skill: string;
-  created_at: string;
-  client_objective: string;
-  current_situation: string;
-  desired_result: string;
-  scope: string;
-  out_of_scope: string[];
-  constraints: string[];
-  source_materials: Array<{
-    name: string;
-    type: string;
-    location: string;
-    provenance: string;
-    collected_at?: string;
-  }>;
-  access_provided: Array<{
-    system: string;
-    scope: string;
-    expires_at?: string;
-    security_note?: string;
-  }>;
-  risks: string[];
-  open_questions: string[];
-  success_criteria: string[];
-  estimated_productive_time_minutes: number;
-  approval_status: "pending_approval";
-}
+/**
+ * What intake produces. `NewBrief` pins `approval_status` to the literal
+ * "pending_approval", so a change that auto-approves fails to compile as well
+ * as failing the safety-invariant test.
+ */
+type GeneratedBrief = NewBrief;
 
 export class Intake {
-  private ajv: Ajv;
+  private validator: SchemaValidator;
   private skillSchemaPath: string;
   private briefSchemaPath: string;
 
   constructor(
     skillSchemaPath: string = "./schemas/skill.schema.json",
-    briefSchemaPath: string = "./schemas/brief.schema.json"
+    briefSchemaPath: string = "./schemas/brief.schema.json",
+    validator: SchemaValidator = new SchemaValidator()
   ) {
-    this.ajv = new Ajv({});
     this.skillSchemaPath = skillSchemaPath;
     this.briefSchemaPath = briefSchemaPath;
+    this.validator = validator;
   }
 
   /**
    * Load a skill file (YAML or JSON) and validate it
    */
   async loadSkill(skillPath: string): Promise<SkillDefinition> {
-    if (!fs.existsSync(skillPath)) {
-      throw new Error(`Skill file not found: ${skillPath}`);
-    }
-
-    const content = fs.readFileSync(skillPath, "utf-8");
-    let skill: SkillDefinition;
-
-    if (skillPath.endsWith(".yaml") || skillPath.endsWith(".yml")) {
-      // For YAML, we'd use a YAML parser in production
-      // For now, assume it's been converted to JSON or use a simple parser
-      console.warn(
-        "YAML parsing requires a YAML library. Using JSON-only for MVP."
-      );
-      throw new Error("YAML support not yet implemented. Use JSON skills.");
-    } else {
-      skill = JSON.parse(content);
-    }
+    const skill = loadDocument<SkillDefinition>(skillPath, "Skill file");
 
     // Validate against skill schema
-    const schemaContent = fs.readFileSync(this.skillSchemaPath, "utf-8");
-    const skillSchema = JSON.parse(schemaContent);
-    const validate = this.ajv.compile(skillSchema);
+    const result = this.validator.validate(this.skillSchemaPath, skill);
 
-    if (!validate(skill)) {
+    if (!result.valid) {
       throw new Error(
-        `Skill validation failed: ${JSON.stringify(validate.errors)}`
+        `Skill validation failed: ${JSON.stringify(result.errors)}`
       );
     }
 
@@ -188,15 +183,24 @@ export class Intake {
     const missing: string[] = [];
     const warnings: string[] = [];
 
-    // Check required inputs from skill.what_i_need
+    const hasMaterials = (response.source_materials ?? []).length > 0;
+    const hasAccess = (response.access_provided ?? []).length > 0;
+
+    // Check required inputs from skill.what_i_need.
+    //
+    // A free-text need cannot be matched semantically to a specific artifact,
+    // so this is a coarse but honest check: needs that ask for system access
+    // are satisfied by an access grant, everything else by a source material.
+    // The distinction matters — before, a single uploaded file silently
+    // satisfied "read-only access to the platform", which is not a file at all.
     if (skill.what_i_need) {
       skill.what_i_need.forEach((need) => {
-        if (
-          !response.source_materials ||
-          (Array.isArray(response.source_materials) &&
-            response.source_materials.length === 0)
-        ) {
-          missing.push(`Missing: ${need}`);
+        if (ACCESS_NEED_PATTERN.test(need)) {
+          if (!hasAccess) {
+            missing.push(`Missing access: ${need}`);
+          }
+        } else if (!hasMaterials) {
+          missing.push(`Missing material: ${need}`);
         }
       });
     }
@@ -210,20 +214,30 @@ export class Intake {
       missing.push("Missing: desired result (what 'done' looks like)");
     }
 
-    // Warn about PII
-    if (skill.exclusions && skill.exclusions.includes("no_pii_unless_required")) {
-      if (
-        response.current_situation &&
-        typeof response.current_situation === "string"
-      ) {
-        if (
-          response.current_situation.toLowerCase().includes("customer") ||
-          response.current_situation.toLowerCase().includes("user")
-        ) {
-          warnings.push(
-            "⚠️  Your brief mentions customer/user data. Make sure you've only shared what's necessary."
-          );
-        }
+    // Warn about PII.
+    //
+    // The flag lives at skill.security_requirements.no_pii_unless_required.
+    // `exclusions` is free prose, so it is scanned by pattern rather than by
+    // exact string match.
+    const noPiiRequested =
+      skill.security_requirements?.no_pii_unless_required === true ||
+      (skill.exclusions ?? []).some((e) => /\bpii\b|personal data/i.test(e));
+
+    if (noPiiRequested) {
+      const searchable = [
+        response.current_situation,
+        response.client_objective,
+        response.desired_result,
+        response.scope,
+        response.notes,
+      ]
+        .filter((v): v is string => typeof v === "string")
+        .join(" ");
+
+      if (PII_HINT_PATTERN.test(searchable)) {
+        warnings.push(
+          "⚠️  Your brief mentions customer/user/personal data. Make sure you've only shared what's necessary."
+        );
       }
     }
 
@@ -241,14 +255,20 @@ export class Intake {
     skill: SkillDefinition,
     response: ClientResponse
   ): GeneratedBrief {
-    const engagementId = `engagement-${uuidv4()}`;
-    const briefId = `brief-${uuidv4()}`;
+    const engagementId = `engagement-${randomUUID()}`;
+    const briefId = `brief-${randomUUID()}`;
 
     const brief: GeneratedBrief = {
       brief_id: briefId,
       engagement_id: engagementId,
       skill: skill.skill,
       created_at: new Date().toISOString(),
+      // Optional by schema, "optional for privacy" — but if the client gave a
+      // name, carry it. It was being collected and silently dropped, so the
+      // reviewer could not see whose engagement they were approving.
+      ...(response.client_name?.trim()
+        ? { client_name: response.client_name.trim() }
+        : {}),
       client_objective:
         (response.client_objective as string) || "Objective not specified",
       current_situation:
@@ -260,7 +280,16 @@ export class Intake {
         `Work within the scope of this ${skill.skill} skill`,
       out_of_scope: (response.out_of_scope as string[]) || [],
       constraints: (response.constraints as string[]) || [],
-      source_materials: response.source_materials || [],
+      // Only the brief's own fields survive. Vault handling (classification,
+      // access restrictions, handling notes) is declared alongside the material
+      // but stays out of the brief, which is a description of the work.
+      source_materials: (response.source_materials ?? []).map((material) => ({
+        name: material.name,
+        type: material.type,
+        location: material.location,
+        provenance: material.provenance,
+        ...(material.collected_at ? { collected_at: material.collected_at } : {}),
+      })),
       access_provided: response.access_provided || [],
       risks: (response.risks as string[]) || [],
       open_questions: (response.open_questions as string[]) || [],
@@ -286,16 +315,7 @@ export class Intake {
     valid: boolean;
     errors: ErrorObject[];
   } {
-    const schemaContent = fs.readFileSync(this.briefSchemaPath, "utf-8");
-    const briefSchema = JSON.parse(schemaContent);
-    const validate = this.ajv.compile(briefSchema);
-
-    const valid = validate(brief);
-
-    return {
-      valid,
-      errors: validate.errors || [],
-    };
+    return this.validator.validate(this.briefSchemaPath, brief);
   }
 
   /**

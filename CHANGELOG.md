@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] — 2026-08-15
+
+The approval gate stops being a diagram. It is now a module, an HTTP surface, and a review UI — and the invariant it protects is enforced at every one of those layers.
+
+### Added
+- **`src/approval/ApprovalGate.ts`** — the human sign-off, enforced. Refuses an automated identity as approver, refuses a second decision on an already-decided brief, refuses a brief/vault pair from different engagements, appends to the audit log without touching prior entries, and re-validates both documents against their schemas before returning.
+- **`src/server/server.ts`** — a dependency-free HTTP server (`npm run gate`) exposing `GET /api/engagement`, `POST /api/decision`, `POST /api/reset`, and the review UI. Binds to loopback; decisions are written to `engagements/<engagement_id>/`.
+- **`src/ui/index.html`** — the review screen: the brief beside the materials that would leave the client's control, each item carrying its classification, provenance and access restrictions; the audit log; and the decision form. Works against the server, and falls back to a static preview when there is none.
+- **`src/vault/VaultManifest.ts`** — vault packaging extracted from the demo runner and made reusable.
+- **`src/validation/SchemaValidator.ts`** — one compiled-schema cache shared by intake and the gate.
+- **`src/types.ts`** — shared TypeScript mirrors of the schemas. `NewBrief` pins `approval_status` to the literal `"pending_approval"`, so auto-approval now fails to compile as well as failing its test.
+- **`tests/approval-gate.test.ts`** and **`tests/server.test.ts`** — 33 new tests covering the gate's invariants in isolation and over the wire.
+- **File-driven engagements.** `--skill` and `--response` on both `npm run dev` and `npm run gate`, reading `.json`, `.yaml` or `.yml`. The client response used to be a `const` in TypeScript, so onboarding a real client meant editing the repo; it is now a file you copy from `examples/example-client-response.yaml` and fill in. `src/engagement/createEngagement.ts` is the single path both the worked example and a real engagement take — there is no separate demo mode.
+- **YAML skill parsing.** `loadSkill()` used to throw `YAML support not yet implemented` for `.yaml`, despite the `yaml` dependency being installed and the README documenting skills in YAML. It now parses both formats through `src/io/loadDocument.ts`. Parsing `skills/example-skill.yaml` for the first time immediately revealed it had drifted from its JSON twin and carried a `notes` field the strict skill schema rejected; `notes` is now part of the schema and a test asserts the two example files are identical.
+- **Per-material classification from the response.** `classification`, `access_restrictions` and handling `notes` are declared alongside each material and travel into the vault manifest, not the brief. Previously classification was hardcoded in a demo-only lookup table, so every real engagement's items would have defaulted to `internal`.
+- **Static demo of the review UI** (`npm run demo:build`, `.github/workflows/pages.yml`). Renders the same `src/ui/index.html` the gate server serves into a standalone page and deploys it to GitHub Pages on merge to `main`. No server is deployed and none is reachable from it: the page falls back to a fictional sample and carries a banner saying the refusal rules it mirrors are enforced server-side, not by the browser. `src/ui/renderPage.ts` now holds the one HTML skeleton used by the server, the demo build and the hosted artifact, so the three cannot drift. Tests assert the built page loads no external resources and contains no credential-shaped strings.
+- **Continuous integration** (`.github/workflows/ci.yml`) — lint, schema validation, tests and build on Node 18 and 22, for every push and pull request. The README's claim that the safety invariants "fail the build" now has a build to fail.
+
+### Fixed
+- **Intake instances were single-use (P1).** AJV registers a schema by its `$id` on compile and throws if the same `$id` is compiled twice; `loadSkill()` and `validateBrief()` recompiled on every call, so the *second* call on any instance threw `schema with key or id ... already exists`. Every test constructing a fresh `Intake` had hidden it. Validators are now compiled once and cached — which is what makes a long-lived server possible at all.
+- **Missing-info detection ignored the need it was checking (P2).** The `what_i_need` loop tested `source_materials` on every iteration regardless of the need in hand, so one uploaded file satisfied *all* declared needs — including "read-only access to the relevant platform", which is not a file. Needs asking for system access are now checked against `access_provided`, and unmet needs are reported per need.
+- **The PII warning was dead code (P3).** The check was `skill.exclusions.includes("no_pii_unless_required")` — an exact string match against an array of prose sentences. The real flag lives at `skill.security_requirements.no_pii_unless_required`, so the warning never fired, while `docs/threat-model.md` T2 claimed it existed. It now reads the flag, scans `exclusions` by pattern, and checks the whole brief rather than only `current_situation`.
+- **Only the first schema error was ever reported.** AJV now runs with `allErrors: true`.
+- **The demo pre-approved its own vault.** `main.ts` wrote an `approvals[]` entry saying the client had approved, while the brief it accompanied was `pending_approval`. Packaging no longer records approvals; a vault leaves intake with `freelancer_access: "none"` and an empty `approvals[]`, and only the gate changes that.
+- **`client_name` was collected and silently dropped.** `ClientResponse` accepted it, both examples set it, and `brief.schema.json` allowed it — but `generateBrief()` never copied it across, so the reviewer could not see whose engagement they were approving. It is now carried when present and shown in the review UI.
+- **`npm run lint` never linted `src/main.ts` or `src/types.ts`.** The `src/**/*.ts` argument expands to `src/*/*.ts` in a shell without `globstar`, silently skipping every top-level file. Now `eslint src tests --ext .ts`, with tests linted too.
+
+### Security
+- **Dropped the `uuid` dependency.** Its advisory (missing buffer bounds check in v3/v5/v6 when `buf` is supplied) was unreachable here — every call site was `uuidv4()` with no arguments — but `engines` already requires Node ≥18, where `crypto.randomUUID()` is built in. One fewer dependency, and the only production advisory is gone rather than pinned.
+- **Cleared the remaining advisories.** `js-yaml` resolved within range; `@typescript-eslint` moved to v8 to pick up the patched `minimatch`. `npm audit` now reports zero vulnerabilities.
+
+### Changed
+- `npm start` / `npm run dev` now demonstrate the gate refusing agent self-approval instead of printing a hand-built manifest.
+- A rejection sets `freelancer_access: "none"` rather than only labelling the brief.
+- README test count corrected (it claimed 13 in one place and 18 in another; the suite is now 59).
+
+---
+
 ## [0.1.2] — 2026-06-24
 
 ### Fixed
