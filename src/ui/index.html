@@ -260,6 +260,94 @@
     font-size: var(--micro);
   }
 
+  /* ---- Where you are in the process ------------------------------------- */
+  .howto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .howto__steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.5rem;
+    align-items: center;
+  }
+
+  .howto__step {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45em;
+    font-size: var(--small);
+    color: var(--ink-muted);
+    padding: 0.3em 0.7em;
+    border-radius: 3px;
+    background: var(--surface-sunken);
+  }
+
+  .howto__step b {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .howto__step--here {
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-weight: 600;
+  }
+
+  .howto__step--here b {
+    color: var(--accent);
+  }
+
+  .howto__step--muted {
+    opacity: 0.6;
+  }
+
+  .howto__text {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: var(--small);
+    max-width: 74ch;
+  }
+
+  .howto__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .howto__link {
+    font-size: var(--small);
+    color: var(--accent);
+  }
+
+  .btn--primary {
+    background: var(--accent);
+    color: var(--surface);
+  }
+
+  /* The accent is dark in light mode and light in dark mode, so the label has
+     to follow the ground it sits on rather than a fixed white. */
+  :root:not([data-theme="light"]) .btn--primary,
+  :root[data-theme="dark"] .btn--primary {
+    color: var(--ground);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .btn--primary {
+      color: var(--ground);
+    }
+  }
+
   /* ---- Summary tiles ---------------------------------------------------- */
   .summary {
     display: grid;
@@ -826,6 +914,33 @@
     <a href="https://github.com/jb0ta/handover-agent">Source on GitHub</a>
   </div>
 
+  <section class="howto" aria-labelledby="howto-heading">
+    <div class="howto__steps" aria-label="Where this screen sits in the process">
+      <span class="howto__step"><b>1</b> Client answers the skill's questions</span>
+      <span class="howto__step"><b>2</b> Agent packages a brief and a scoped vault</span>
+      <span class="howto__step howto__step--here" aria-current="step">
+        <b>3</b> You decide
+      </span>
+      <span class="howto__step howto__step--muted"><b>4</b> Freelancer works</span>
+    </div>
+    <p class="howto__text" id="howto-heading">
+      An engagement arrives here already collected and packaged. Approving is
+      what releases it — until then the freelancer has no access to anything
+      below.
+    </p>
+    <div class="howto__actions">
+      <button type="button" class="btn--primary" id="btn-new">
+        Start a new handover
+      </button>
+      <a
+        class="howto__link"
+        id="howto-link"
+        href="https://github.com/jb0ta/handover-agent#usage-run-a-real-engagement"
+        >Run this on your own engagement →</a
+      >
+    </div>
+  </section>
+
   <section class="summary" aria-label="Engagement summary">
     <div class="tile">
       <p class="eyebrow">Status</p>
@@ -985,9 +1100,6 @@
         </button>
         <button type="button" class="btn--reject" id="btn-reject" disabled>
           Reject
-        </button>
-        <button type="button" class="btn--ghost" id="btn-reset">
-          Load a fresh engagement
         </button>
       </div>
       <p class="gate__result" id="gate-result" role="status" aria-live="polite"></p>
@@ -1633,10 +1745,17 @@
 
     async function reset() {
       setResult("", null);
+      $("approver-name").value = "";
+      $("approver-notes").value = "";
+
       if (!connected) {
         state = JSON.parse(JSON.stringify(OFFLINE_STATE));
         render();
-        setResult("Loaded the sample engagement again.", "info");
+        setResult(
+          "Sample reloaded. This preview only carries the one example — to run " +
+            "your own engagement, clone the repo and point the gate at your files.",
+          "info"
+        );
         return;
       }
       try {
@@ -1663,7 +1782,7 @@
       $("btn-reject").addEventListener("click", function () {
         decide("rejected");
       });
-      $("btn-reset").addEventListener("click", reset);
+      $("btn-new").addEventListener("click", reset);
     }
 
     async function boot() {
@@ -1678,6 +1797,11 @@
           "Connected to the approval gate. Decisions are enforced by " +
           "src/approval/ApprovalGate.ts and written to engagements/.";
       } catch (error) {
+        // The label has to match what the button can actually do. With no
+        // server there is only the one sample, so promising "a new handover"
+        // would be a lie the second time someone clicked it.
+        $("btn-new").textContent = "Restart the sample";
+        $("howto-link").textContent = "Run this on your own engagement →";
         state = JSON.parse(JSON.stringify(OFFLINE_STATE));
         connected = false;
         $("preview-banner").hidden = false;

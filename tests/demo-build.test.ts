@@ -77,6 +77,31 @@ describe("static demo build", () => {
     expect(html).toMatch(/enforced by\s*\n?\s*<code>src\/approval\/ApprovalGate\.ts<\/code>/);
   });
 
+  // Someone landing cold saw a finished engagement awaiting a decision, with
+  // no indication of what the screen was or where an engagement comes from.
+  it("explains where the screen sits in the process", () => {
+    const html = build();
+    expect(html).toContain("You decide");
+    expect(html).toMatch(/Client answers the skill's questions/);
+    expect(html).toMatch(/Agent packages a brief and a scoped vault/);
+  });
+
+  it("offers a primary action to start over, outside the decision panel", () => {
+    const html = build();
+    expect(html).toContain('id="btn-new"');
+    // The old affordance was a ghost button buried among Approve/Reject.
+    expect(html).not.toContain('id="btn-reset"');
+    const newButtonAt = html.indexOf('id="btn-new"');
+    const decisionPanelAt = html.indexOf('id="gate"');
+    expect(newButtonAt).toBeLessThan(decisionPanelAt);
+  });
+
+  it("points at how to run a real engagement", () => {
+    const html = build();
+    expect(html).toContain('id="howto-link"');
+    expect(html).toMatch(/Run this on your own engagement/);
+  });
+
   // The demo is public. It must be a self-contained page with no calls out.
   it("loads no external resources", () => {
     const html = build();
