@@ -1,8 +1,8 @@
 {
-  "brief_id": "brief-8b510e3c-3829-409f-83b4-363d1e358fda",
-  "engagement_id": "engagement-6fee7322-0022-4d82-aa8a-838436b7307e",
+  "brief_id": "brief-5f0e6b1f-33c4-4544-bfb1-40dffd83ffd6",
+  "engagement_id": "engagement-e6655266-ab38-465a-a1f9-ac7095d9d1fd",
   "skill": "workflow-automation-review",
-  "created_at": "2026-08-15T16:17:47.956Z",
+  "created_at": "2026-08-15T16:59:01.436Z",
   "client_name": "TechFlow Inc.",
   "client_objective": "Make our main lead-capture workflow 30% faster and more reliable",
   "current_situation": "We run a webhook-triggered n8n workflow that collects form submissions, validates them, enriches with company data via API, and logs to Pipedrive. It works, but often times out on large batches and sometimes loses data.",
@@ -34,7 +34,7 @@
     {
       "system": "n8n",
       "scope": "read-only access to the workflow and logs",
-      "expires_at": "2026-08-22T16:17:47.888Z"
+      "expires_at": "2026-08-22T16:59:01.366Z"
     }
   ],
   "risks": [

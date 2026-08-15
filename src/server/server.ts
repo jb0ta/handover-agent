@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import Intake from "../intake/Intake";
 import ApprovalGate, { ApprovalError } from "../approval/ApprovalGate";
+import { createToolkit } from "../node";
 import { createEngagement } from "../engagement/createEngagement";
 import { parseArgs, usage, UsageError, DEFAULT_SKILL_PATH } from "../cli/options";
 import { renderPage, readUiBody, UI_BODY_PATH } from "../ui/renderPage";
@@ -55,8 +56,9 @@ export class ApprovalServer {
   private server: http.Server;
 
   constructor(options: ServerOptions = {}) {
-    this.gate = new ApprovalGate();
-    this.intake = new Intake();
+    const toolkit = createToolkit();
+    this.gate = toolkit.gate;
+    this.intake = toolkit.intake;
     this.outputDir = options.outputDir ?? "./engagements";
     this.skillPath = options.skillPath ?? DEFAULT_SKILL_PATH;
     this.responsePath = options.responsePath;

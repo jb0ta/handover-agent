@@ -4,6 +4,7 @@ import * as path from "path";
 import Intake from "../src/intake/Intake";
 import { createEngagement } from "../src/engagement/createEngagement";
 import { parseArgs, UsageError, DEFAULT_SKILL_PATH } from "../src/cli/options";
+import { loadSchemas, createIntake } from "../src/node";
 
 /**
  * The point of this suite: a real engagement must run from files, with no
@@ -11,8 +12,7 @@ import { parseArgs, UsageError, DEFAULT_SKILL_PATH } from "../src/cli/options";
  * onboarding an actual client meant editing the repo.
  */
 
-const SKILL_SCHEMA = path.join(__dirname, "../schemas/skill.schema.json");
-const BRIEF_SCHEMA = path.join(__dirname, "../schemas/brief.schema.json");
+const SCHEMAS = loadSchemas(path.join(__dirname, "../schemas"));
 const EXAMPLE_SKILL_YAML = path.join(__dirname, "../skills/example-skill.yaml");
 const EXAMPLE_SKILL_JSON = path.join(__dirname, "../skills/example-skill.json");
 const EXAMPLE_RESPONSE = path.join(
@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 function makeIntake(): Intake {
-  return new Intake(SKILL_SCHEMA, BRIEF_SCHEMA);
+  return createIntake(SCHEMAS);
 }
 
 function write(name: string, content: string): string {

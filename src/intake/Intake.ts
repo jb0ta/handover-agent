@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import { ErrorObject } from "ajv";
-import SchemaValidator from "../validation/SchemaValidator";
-import loadDocument from "../io/loadDocument";
+import SchemaValidator, { JsonSchema } from "../validation/SchemaValidator";
 import { AccessRestriction, Classification } from "../types";
 import { NewBrief } from "../types";
 
@@ -97,29 +96,44 @@ export interface ClientResponse {
  */
 type GeneratedBrief = NewBrief;
 
+/** The schemas intake needs. Objects, not paths — see `src/schemas`. */
+export interface IntakeSchemas {
+  skill: JsonSchema;
+  brief: JsonSchema;
+}
+
+/**
+ * How a caller turns a path into a parsed document.
+ *
+ * Injected rather than imported, so this module never references a
+ * filesystem. `createIntake()` in `src/node.ts` supplies the real one; a
+ * browser supplies nothing and uses `useSkill()` with an object it already has.
+ */
+export type DocumentReader = <T>(filePath: string, label?: string) => T;
+
 export class Intake {
   private validator: SchemaValidator;
-  private skillSchemaPath: string;
-  private briefSchemaPath: string;
+  private schemas: IntakeSchemas;
+  private readDocument?: DocumentReader;
 
   constructor(
-    skillSchemaPath: string = "./schemas/skill.schema.json",
-    briefSchemaPath: string = "./schemas/brief.schema.json",
-    validator: SchemaValidator = new SchemaValidator()
+    schemas: IntakeSchemas,
+    validator: SchemaValidator = new SchemaValidator(),
+    readDocument?: DocumentReader
   ) {
-    this.skillSchemaPath = skillSchemaPath;
-    this.briefSchemaPath = briefSchemaPath;
+    this.schemas = schemas;
     this.validator = validator;
+    this.readDocument = readDocument;
   }
 
   /**
-   * Load a skill file (YAML or JSON) and validate it
+   * Validate an already-parsed skill.
+   *
+   * The core of skill handling: no filesystem, so it runs anywhere the object
+   * can be supplied.
    */
-  async loadSkill(skillPath: string): Promise<SkillDefinition> {
-    const skill = loadDocument<SkillDefinition>(skillPath, "Skill file");
-
-    // Validate against skill schema
-    const result = this.validator.validate(this.skillSchemaPath, skill);
+  useSkill(skill: unknown): SkillDefinition {
+    const result = this.validator.validate(this.schemas.skill, skill);
 
     if (!result.valid) {
       throw new Error(
@@ -127,7 +141,22 @@ export class Intake {
       );
     }
 
-    return skill;
+    return skill as SkillDefinition;
+  }
+
+  /**
+   * Read a skill file (YAML or JSON) and validate it.
+   *
+   * A thin convenience over `useSkill` for callers that have a path.
+   */
+  async loadSkill(skillPath: string): Promise<SkillDefinition> {
+    if (!this.readDocument) {
+      throw new Error(
+        "This Intake has no document reader. Build it with createIntake(), " +
+          "or pass an already-parsed skill to useSkill()."
+      );
+    }
+    return this.useSkill(this.readDocument<SkillDefinition>(skillPath, "Skill file"));
   }
 
   /**
@@ -315,7 +344,7 @@ export class Intake {
     valid: boolean;
     errors: ErrorObject[];
   } {
-    return this.validator.validate(this.briefSchemaPath, brief);
+    return this.validator.validate(this.schemas.brief, brief);
   }
 
   /**

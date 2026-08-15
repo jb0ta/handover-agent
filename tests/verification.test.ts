@@ -1,17 +1,16 @@
 import Intake from "../src/intake/Intake";
+import { loadSchemas, createIntake } from "../src/node";
 import Ajv from "ajv";
 import * as fs from "fs";
 import * as path from "path";
 
-const SKILL_SCHEMA = path.join(__dirname, "../schemas/skill.schema.json");
-const BRIEF_SCHEMA = path.join(__dirname, "../schemas/brief.schema.json");
-const VAULT_SCHEMA = path.join(__dirname, "../schemas/vault-manifest.schema.json");
+const SCHEMAS = loadSchemas(path.join(__dirname, "../schemas"));
 const EXAMPLE_SKILL_JSON = path.join(__dirname, "../skills/example-skill.json");
 const EXAMPLE_SKILL_YAML = path.join(__dirname, "../skills/example-skill.yaml");
 const EXAMPLE_VAULT = path.join(__dirname, "../examples/example-vault-manifest.json");
 
 function makeIntake(): Intake {
-  return new Intake(SKILL_SCHEMA, BRIEF_SCHEMA);
+  return createIntake(SCHEMAS);
 }
 
 const COMPLETE_RESPONSE = {
@@ -58,9 +57,7 @@ describe("Vault manifest example — integrity", () => {
 
   it("validates against the vault-manifest schema", () => {
     const ajv = new Ajv({ allErrors: true });
-    const validate = ajv.compile(
-      JSON.parse(fs.readFileSync(VAULT_SCHEMA, "utf-8"))
-    );
+    const validate = ajv.compile(SCHEMAS.vault);
     expect(validate(manifest)).toBe(true);
   });
 

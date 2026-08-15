@@ -1,19 +1,19 @@
 {
-  "engagement_id": "engagement-6fee7322-0022-4d82-aa8a-838436b7307e",
-  "brief_id": "brief-8b510e3c-3829-409f-83b4-363d1e358fda",
-  "vault_path": "/engagements/engagement-6fee7322-0022-4d82-aa8a-838436b7307e/vault",
+  "engagement_id": "engagement-e6655266-ab38-465a-a1f9-ac7095d9d1fd",
+  "brief_id": "brief-5f0e6b1f-33c4-4544-bfb1-40dffd83ffd6",
+  "vault_path": "/engagements/engagement-e6655266-ab38-465a-a1f9-ac7095d9d1fd/vault",
   "scope": "per-engagement",
-  "created_at": "2026-08-15T16:17:47.969Z",
-  "expires_at": "2026-08-29T16:17:47.969Z",
+  "created_at": "2026-08-15T16:59:01.449Z",
+  "expires_at": "2026-08-29T16:59:01.449Z",
   "client_approval_required_before_use": true,
   "items": [
     {
-      "item_id": "item-45dd73f4-85a9-4bf2-9af5-adaf0231bde5",
+      "item_id": "item-6abadf0d-e512-411c-a8b9-bc44d4db853a",
       "name": "Lead workflow export",
       "type": "file",
       "path": "lead-workflow.json",
       "provenance": "Client export from n8n",
-      "collected_at": "2026-08-15T16:17:47.969Z",
+      "collected_at": "2026-08-15T16:59:01.449Z",
       "collection_method": "user_upload",
       "classification": "internal",
       "access_restrictions": [
@@ -22,12 +22,12 @@
       "notes": "Contains workflow logic and API endpoints. Do not share externally."
     },
     {
-      "item_id": "item-1d4745ff-5bf5-48b3-8130-1642fc8802fe",
+      "item_id": "item-f19ac3ff-7f65-4919-bc3c-04c60e7e1fb6",
       "name": "Error log (last 7 days)",
       "type": "file",
       "path": "error-log.csv",
       "provenance": "Client export from n8n logs",
-      "collected_at": "2026-08-15T16:17:47.969Z",
+      "collected_at": "2026-08-15T16:59:01.449Z",
       "collection_method": "user_upload",
       "classification": "confidential",
       "access_restrictions": [
@@ -43,25 +43,25 @@
   },
   "audit_log": [
     {
-      "timestamp": "2026-08-15T16:17:47.969Z",
+      "timestamp": "2026-08-15T16:59:01.449Z",
       "actor": "system",
       "action": "vault_created",
-      "details": "Vault created for engagement engagement-6fee7322-0022-4d82-aa8a-838436b7307e",
+      "details": "Vault created for engagement engagement-e6655266-ab38-465a-a1f9-ac7095d9d1fd",
       "item_ids": []
     },
     {
-      "timestamp": "2026-08-15T16:17:47.969Z",
+      "timestamp": "2026-08-15T16:59:01.449Z",
       "actor": "agent_intake",
       "action": "items_collected",
       "details": "2 item(s) from the client response added to the vault",
       "item_ids": [
-        "item-45dd73f4-85a9-4bf2-9af5-adaf0231bde5",
-        "item-1d4745ff-5bf5-48b3-8130-1642fc8802fe"
+        "item-6abadf0d-e512-411c-a8b9-bc44d4db853a",
+        "item-f19ac3ff-7f65-4919-bc3c-04c60e7e1fb6"
       ]
     }
   ],
   "revocation_conditions": {
-    "automatic_expiry_utc": "2026-08-29T16:17:47.969Z",
+    "automatic_expiry_utc": "2026-08-29T16:59:01.449Z",
     "manual_revocation_by_client": true,
     "on_expiry_action": "lock_read_only",
     "retention_after_expiry": "90d"
