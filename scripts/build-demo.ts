@@ -1,17 +1,18 @@
 import * as fs from "fs";
 import * as path from "path";
 import { renderPage, readUiBody } from "../src/ui/renderPage";
+import { buildBrowserBundle } from "../src/browser/bundle";
 
 /**
  * Builds the static demo of the review UI for GitHub Pages.
  *
- * This is the same `src/ui/index.html` the gate server serves. With no server
- * to talk to, the page falls back to its built-in sample and shows a preview
- * banner saying so — the refusal rules it mirrors client-side are a
- * demonstration, and the server is what enforces them.
+ * This is the same `src/ui/index.html` the gate server serves, with the real
+ * core bundled in so a visitor can start their own handover and watch intake,
+ * vault packaging and the approval gate run on what they typed.
  *
- * Nothing about a real engagement is deployed: the sample is fictional, no
- * API is reachable, and no decision is written anywhere.
+ * Nothing is deployed that could leak: the sample is fictional, no API is
+ * reachable, and the page makes no network requests at all — whatever a
+ * visitor enters stays in their tab.
  */
 
 const OUT_DIR = process.env.DEMO_OUT_DIR ?? "./dist-demo";
@@ -21,8 +22,9 @@ const HEAD = `
 <meta name="robots" content="index, follow" />
 `.trim();
 
-export function buildDemo(outDir: string = OUT_DIR): string {
-  const html = renderPage(readUiBody(), { head: HEAD });
+export async function buildDemo(outDir: string = OUT_DIR): Promise<string> {
+  const script = await buildBrowserBundle();
+  const html = renderPage(readUiBody(), { head: HEAD, script });
 
   fs.mkdirSync(outDir, { recursive: true });
   const outFile = path.join(outDir, "index.html");
@@ -35,9 +37,17 @@ export function buildDemo(outDir: string = OUT_DIR): string {
 }
 
 if (require.main === module) {
-  const outFile = buildDemo();
-  const bytes = fs.statSync(outFile).size;
-  console.log(`✓ Built static demo: ${outFile} (${(bytes / 1024).toFixed(1)} kB)`);
+  buildDemo()
+    .then((outFile) => {
+      const bytes = fs.statSync(outFile).size;
+      console.log(
+        `✓ Built static demo: ${outFile} (${(bytes / 1024).toFixed(1)} kB)`
+      );
+    })
+    .catch((error) => {
+      console.error("❌ Demo build failed:", error);
+      process.exit(1);
+    });
 }
 
 export default buildDemo;

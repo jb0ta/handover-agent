@@ -53,6 +53,7 @@ export class ApprovalServer {
   private outputDir: string;
   private skillPath: string;
   private responsePath?: string;
+  private bundle?: Promise<string>;
   private server: http.Server;
 
   constructor(options: ServerOptions = {}) {
@@ -129,12 +130,16 @@ export class ApprovalServer {
     }
   }
 
-  private sendUi(res: http.ServerResponse): void {
+  private async sendUi(res: http.ServerResponse): Promise<void> {
     let html: string;
     try {
-      html = renderPage(readUiBody());
-    } catch {
-      this.sendJson(res, 500, { error: `Review UI not found at ${UI_BODY_PATH}` });
+      html = renderPage(readUiBody(), { script: await this.browserBundle() });
+    } catch (error) {
+      this.sendJson(res, 500, {
+        error: `Could not render the review UI (${UI_BODY_PATH}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
       return;
     }
 
@@ -143,6 +148,21 @@ export class ApprovalServer {
       "Cache-Control": "no-store",
     });
     res.end(html);
+  }
+
+  /**
+   * Built once per process; the bundle only changes when the source does.
+   *
+   * Imported lazily so esbuild is only needed when the UI is actually served —
+   * the API and the CLI work without it.
+   */
+  private async browserBundle(): Promise<string> {
+    if (!this.bundle) {
+      this.bundle = import("../browser/bundle").then((m) =>
+        m.buildBrowserBundle()
+      );
+    }
+    return this.bundle;
   }
 
   private async handleDecision(

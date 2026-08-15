@@ -7,12 +7,12 @@
   fragment means one file serves both, with no duplicated markup to drift.
 
   It runs in two modes:
-    - Connected: GET /api/engagement, POST /api/decision. The server's
-      ApprovalGate is the only thing that decides.
-    - Offline preview: if there is no server, it falls back to the embedded
-      sample below and mirrors the gate's refusal rules client-side so the
-      page is still explorable. That mirror is a demo convenience — the
-      server is authoritative, and the UI says so on screen.
+    - Connected: GET /api/engagement, POST /api/decision. The server decides,
+      and its engagement comes from the files the gate was pointed at.
+    - Standalone: with no server, the page runs the real core itself — the
+      bundle built by src/browser/bundle.ts defines window.Handover, so
+      intake, vault packaging and the approval gate are the same modules the
+      server runs, not a mirror of them. Nothing is sent anywhere.
 -->
 <title>Handover Approval Gate</title>
 
@@ -346,6 +346,122 @@
     :root:not([data-theme="light"]) .btn--primary {
       color: var(--ground);
     }
+  }
+
+  /* ---- The new-handover form -------------------------------------------- */
+  .notice--private {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--ink-muted);
+    margin: 0;
+  }
+
+  .notice--private b {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  #new-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+
+  .fieldset {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1rem 1.15rem 1.15rem;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-width: 0;
+  }
+
+  .fieldset legend {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 0 0.4em;
+  }
+
+  .fieldset__hint {
+    margin: 0;
+    font-size: var(--small);
+    color: var(--ink-muted);
+    max-width: 74ch;
+  }
+
+  .fieldset__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 0.85rem;
+  }
+
+  .label-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+  }
+
+  .opt {
+    font-family: var(--sans);
+    font-size: var(--micro);
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--ink-faint);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.7rem;
+    padding: 0.85rem;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--surface-sunken);
+    align-items: end;
+  }
+
+  .row[data-classification="public"] {
+    border-left-color: var(--class-public);
+  }
+  .row[data-classification="internal"] {
+    border-left-color: var(--class-internal);
+  }
+  .row[data-classification="confidential"] {
+    border-left-color: var(--class-confidential);
+  }
+  .row[data-classification="credentials_or_keys"] {
+    border-left-color: var(--class-credentials);
+  }
+
+  .row + .row {
+    margin-top: 0.7rem;
+  }
+
+  .row__remove {
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-muted);
+    align-self: end;
+    padding: 0.5rem 0.8rem;
+  }
+
+  .rows-empty {
+    margin: 0;
+    font-size: var(--small);
+    color: var(--ink-faint);
   }
 
   /* ---- Summary tiles ---------------------------------------------------- */
@@ -904,16 +1020,18 @@
   </header>
 
   <div class="notice notice--preview" id="preview-banner" hidden>
-    <b>Preview</b>
+    <b>Standalone</b>
     <span>
-      No gate server behind this page. The buttons work and mirror the gate's
-      refusal rules so you can see what it does, but those rules are enforced by
-      <code>src/approval/ApprovalGate.ts</code> on the server — not by this
-      browser. Nothing here is written anywhere.
+      No server behind this page — it runs
+      <code>src/approval/ApprovalGate.ts</code> and the rest of the core
+      itself, so what you see is the real thing rather than a mock. Nothing is
+      sent anywhere and nothing is written to disk; a real engagement is
+      decided against a running gate, which also keeps the record.
     </span>
     <a href="https://github.com/jb0ta/handover-agent">Source on GitHub</a>
   </div>
 
+  <div id="view-review">
   <section class="howto" aria-labelledby="howto-heading">
     <div class="howto__steps" aria-label="Where this screen sits in the process">
       <span class="howto__step"><b>1</b> Client answers the skill's questions</span>
@@ -1118,6 +1236,135 @@
     </div>
   </section>
 
+  </div><!-- /view-review -->
+
+  <div id="view-new" hidden>
+    <section class="panel" aria-labelledby="new-heading">
+      <div class="panel__head">
+        <h2 id="new-heading">Start a new handover</h2>
+        <span class="eyebrow" id="new-skill-name">—</span>
+      </div>
+      <div class="panel__body">
+        <p class="notice notice--private">
+          <b>Stays in this tab</b>
+          <span>
+            Intake, vault packaging and the approval gate all run in your
+            browser. This page makes no network requests and stores nothing —
+            close the tab and it is gone. That said, it is a demo: don't paste
+            anything you wouldn't want on your own screen.
+          </span>
+        </p>
+
+        <form id="new-form" novalidate>
+          <fieldset class="fieldset">
+            <legend>The need</legend>
+            <label for="f-client">
+              <span class="label-row">Client name <span class="opt">optional</span></span>
+              <input id="f-client" type="text" placeholder="Acme Ltd." />
+            </label>
+            <label for="f-objective">
+              What do they want to achieve?
+              <input
+                id="f-objective"
+                type="text"
+                required
+                placeholder="Make our lead-capture workflow faster and more reliable"
+              />
+            </label>
+            <label for="f-situation">
+              Where are they now?
+              <textarea
+                id="f-situation"
+                required
+                placeholder="What runs today, and how it falls over."
+              ></textarea>
+            </label>
+            <label for="f-desired">
+              What does "done" look like?
+              <textarea
+                id="f-desired"
+                required
+                placeholder="The state that would let everyone call this finished."
+              ></textarea>
+            </label>
+            <label for="f-scope">
+              <span class="label-row">In scope <span class="opt">optional</span></span>
+              <textarea
+                id="f-scope"
+                placeholder="What this engagement covers."
+              ></textarea>
+            </label>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Boundaries <span class="opt">one per line</span></legend>
+            <div class="fieldset__grid">
+              <label for="f-out-of-scope">
+                Explicitly out of scope
+                <textarea id="f-out-of-scope" placeholder="Complete rewrite"></textarea>
+              </label>
+              <label for="f-constraints">
+                Constraints
+                <textarea id="f-constraints" placeholder="No downtime during the fix"></textarea>
+              </label>
+              <label for="f-risks">
+                Risks
+                <textarea id="f-risks" placeholder="Handles sensitive lead data"></textarea>
+              </label>
+              <label for="f-success">
+                Success criteria
+                <textarea id="f-success" placeholder="Processes 500+ leads without timeouts"></textarea>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Materials they'd hand over</legend>
+            <p class="fieldset__hint">
+              Classification is what the reviewer sees at the gate, and what
+              decides how alarming an item looks before anything is released.
+            </p>
+            <div id="materials"></div>
+            <button type="button" class="btn--ghost" id="add-material">
+              Add a material
+            </button>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>System access they'd grant</legend>
+            <p class="fieldset__hint">
+              Describe the scope, never paste the secret. Real credentials
+              belong in a secrets store, referenced by handle.
+            </p>
+            <div id="grants"></div>
+            <button type="button" class="btn--ghost" id="add-grant">
+              Add an access grant
+            </button>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Effort</legend>
+            <label for="f-minutes">
+              Estimated productive time (minutes, 30–480)
+              <input id="f-minutes" type="number" min="30" max="480" step="15" value="120" />
+            </label>
+          </fieldset>
+
+          <div class="actions">
+            <button type="submit" class="btn--primary">Generate the brief</button>
+            <button type="button" class="btn--ghost" id="btn-fill-example">
+              Fill with the example
+            </button>
+            <button type="button" class="btn--ghost" id="btn-cancel-new">
+              Cancel
+            </button>
+          </div>
+          <p class="gate__result" id="form-error" role="alert" aria-live="assertive"></p>
+        </form>
+      </div>
+    </section>
+  </div><!-- /view-new -->
+
   <footer>
     <span id="mode-note">Connecting…</span>
     <span
@@ -1265,12 +1512,6 @@
         };
       }
     );
-
-    var NON_HUMAN_TOKENS = [
-      "agent", "agents", "ai", "assistant", "automated", "automation", "bot",
-      "bots", "claude", "cron", "daemon", "gpt", "llm", "noreply", "robot",
-      "script", "service", "system"
-    ];
 
     var CLASSIFICATION_ORDER = [
       "public",
@@ -1635,57 +1876,18 @@
     }
 
     // ---- Decisions ------------------------------------------------------
-    function decideOffline(decision, role, name, notes) {
-      // Mirrors ApprovalGate for the static preview only. When a server is
-      // present it decides, and this never runs.
-      if (looksAutomated(name)) {
-        throw new Error(
-          '"' + name + '" looks like an automated identity. ' +
-            "A handover must be approved by a person."
-        );
-      }
-      if (state.brief.approval_status !== "pending_approval") {
-        throw new Error(
-          "Brief " + state.brief.brief_id + ' is already "' +
-            state.brief.approval_status +
-            '". A decision cannot be changed; raise a new engagement instead.'
-        );
-      }
-
-      var approved = decision === "approved";
-      var at = new Date().toISOString();
-      var entry = {
-        timestamp: at,
-        actor: role + ":" + name,
-        action: approved ? "approved" : "rejected",
-        item_ids: state.vault.items.map(function (item) {
-          return item.item_id;
-        }),
-        details:
-          (approved
-            ? "Handover approved by " + name + " (" + role + "). " +
-              state.vault.items.length + " item(s) released to the freelancer."
-            : "Handover rejected by " + name + " (" + role + "). " +
-              "No items released; freelancer access set to none.") +
-          (notes ? " Note: " + notes : "")
-      };
-
-      state.brief.approval_status = approved ? "approved" : "rejected";
-      state.brief.approved_at = at;
-      state.vault.audit_log = state.vault.audit_log.concat([entry]);
-      state.vault.access_control.freelancer_access = approved
-        ? "read_only"
-        : "none";
-      if (approved) {
-        state.vault.approvals = (state.vault.approvals || []).concat([
-          {
-            approver: role,
-            approved_at: at,
-            approval_type: "handover_use",
-            notes: notes || "Approved by " + name + " at the gate."
-          }
-        ]);
-      }
+    function offlineDecide(decision, role, name, notes) {
+      // The real ApprovalGate, running in this tab. This used to be a
+      // hand-written mirror of its rules; the bundled core removed the need
+      // for a second copy that could drift from the one being demonstrated.
+      var result = window.Handover.decide(state.brief, state.vault, {
+        decision: decision,
+        approver_role: role,
+        approver_name: name,
+        notes: notes || undefined,
+      });
+      state.brief = result.brief;
+      state.vault = result.vault;
     }
 
     async function decide(decision) {
@@ -1697,15 +1899,17 @@
 
       if (!connected) {
         try {
-          decideOffline(decision, role, name, notes);
+          offlineDecide(decision, role, name, notes);
         } catch (error) {
           setResult(error.message, "error");
           return;
         }
         render();
         setResult(
-          "Recorded in this preview only — no server is connected, so nothing " +
-            "was written to disk.",
+          (decision === "approved"
+            ? "Approved. The vault is now read-only for the freelancer."
+            : "Rejected. Nothing released; freelancer access set to none.") +
+            " Recorded in this tab only — nothing was written anywhere.",
           decision === "approved" ? "ok" : "info"
         );
         return;
@@ -1768,6 +1972,256 @@
       }
     }
 
+
+    // ---- The new-handover form ------------------------------------------
+    var CLASSIFICATIONS = [
+      ["internal", "Internal"],
+      ["public", "Public"],
+      ["confidential", "Confidential"],
+      ["credentials_or_keys", "Credentials or keys"],
+    ];
+
+    function lines(id) {
+      return $(id)
+        .value.split("\n")
+        .map(function (line) { return line.trim(); })
+        .filter(Boolean);
+    }
+
+    function field(labelText, placeholder, className) {
+      var label = document.createElement("label");
+      label.appendChild(document.createTextNode(labelText));
+      var input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = placeholder || "";
+      input.className = className;
+      label.appendChild(input);
+      return label;
+    }
+
+    function addMaterialRow(values) {
+      var row = document.createElement("div");
+      row.className = "row";
+      row.setAttribute("data-classification", (values && values.classification) || "internal");
+
+      row.appendChild(field("Name", "Lead workflow export", "m-name"));
+      row.appendChild(field("Where it lives", "lead-workflow.json", "m-location"));
+      row.appendChild(field("Where it came from", "Client export from n8n", "m-provenance"));
+
+      var classLabel = document.createElement("label");
+      classLabel.appendChild(document.createTextNode("Classification"));
+      var select = document.createElement("select");
+      select.className = "m-classification";
+      CLASSIFICATIONS.forEach(function (pair) {
+        var option = document.createElement("option");
+        option.value = pair[0];
+        option.textContent = pair[1];
+        select.appendChild(option);
+      });
+      select.addEventListener("change", function () {
+        row.setAttribute("data-classification", this.value);
+      });
+      classLabel.appendChild(select);
+      row.appendChild(classLabel);
+
+      row.appendChild(field("Handling notes", "May contain PII", "m-notes"));
+
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "row__remove";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", function () {
+        row.remove();
+        renderEmptyHints();
+      });
+      row.appendChild(remove);
+
+      if (values) {
+        row.querySelector(".m-name").value = values.name || "";
+        row.querySelector(".m-location").value = values.location || "";
+        row.querySelector(".m-provenance").value = values.provenance || "";
+        select.value = values.classification || "internal";
+        row.querySelector(".m-notes").value = values.notes || "";
+      }
+
+      $("materials").appendChild(row);
+      renderEmptyHints();
+    }
+
+    function addGrantRow(values) {
+      var row = document.createElement("div");
+      row.className = "row";
+      row.appendChild(field("System", "n8n", "g-system"));
+      row.appendChild(field("Scope granted", "read-only access to the workflow", "g-scope"));
+
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "row__remove";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", function () {
+        row.remove();
+        renderEmptyHints();
+      });
+      row.appendChild(remove);
+
+      if (values) {
+        row.querySelector(".g-system").value = values.system || "";
+        row.querySelector(".g-scope").value = values.scope || "";
+      }
+
+      $("grants").appendChild(row);
+      renderEmptyHints();
+    }
+
+    function renderEmptyHints() {
+      [["materials", "No materials yet."], ["grants", "No access granted yet."]].forEach(
+        function (pair) {
+          var host = $(pair[0]);
+          var hint = host.querySelector(".rows-empty");
+          var hasRows = host.querySelectorAll(".row").length > 0;
+          if (hasRows && hint) hint.remove();
+          if (!hasRows && !hint) {
+            var p = document.createElement("p");
+            p.className = "rows-empty";
+            p.textContent = pair[1];
+            host.appendChild(p);
+          }
+        }
+      );
+    }
+
+    function collectResponse() {
+      var materials = [].slice.call($("materials").querySelectorAll(".row")).map(
+        function (row) {
+          var name = row.querySelector(".m-name").value.trim();
+          var location = row.querySelector(".m-location").value.trim();
+          var notes = row.querySelector(".m-notes").value.trim();
+          return {
+            name: name,
+            type: "file",
+            location: location || name,
+            provenance: row.querySelector(".m-provenance").value.trim() || "client_upload",
+            classification: row.querySelector(".m-classification").value,
+            access_restrictions: ["freelancer_only"],
+            notes: notes || undefined,
+          };
+        }
+      ).filter(function (m) { return m.name; });
+
+      var grants = [].slice.call($("grants").querySelectorAll(".row")).map(function (row) {
+        return {
+          system: row.querySelector(".g-system").value.trim(),
+          scope: row.querySelector(".g-scope").value.trim(),
+        };
+      }).filter(function (g) { return g.system && g.scope; });
+
+      var response = {
+        client_objective: $("f-objective").value.trim(),
+        current_situation: $("f-situation").value.trim(),
+        desired_result: $("f-desired").value.trim(),
+        out_of_scope: lines("f-out-of-scope"),
+        constraints: lines("f-constraints"),
+        risks: lines("f-risks"),
+        success_criteria: lines("f-success"),
+        source_materials: materials,
+        access_provided: grants,
+        estimated_productive_time_minutes: Number($("f-minutes").value) || 120,
+      };
+
+      var clientName = $("f-client").value.trim();
+      if (clientName) response.client_name = clientName;
+      var scope = $("f-scope").value.trim();
+      if (scope) response.scope = scope;
+
+      return response;
+    }
+
+    function fillExample() {
+      var b = OFFLINE_STATE.brief;
+      $("f-client").value = b.client_name || "";
+      $("f-objective").value = b.client_objective;
+      $("f-situation").value = b.current_situation;
+      $("f-desired").value = b.desired_result;
+      $("f-scope").value = b.scope;
+      $("f-out-of-scope").value = b.out_of_scope.join("\n");
+      $("f-constraints").value = b.constraints.join("\n");
+      $("f-risks").value = b.risks.join("\n");
+      $("f-success").value = b.success_criteria.join("\n");
+      $("f-minutes").value = String(b.estimated_productive_time_minutes);
+
+      $("materials").textContent = "";
+      OFFLINE_STATE.vault.items.forEach(function (item) {
+        addMaterialRow({
+          name: item.name,
+          location: item.path,
+          provenance: item.provenance,
+          classification: item.classification,
+          notes: item.notes,
+        });
+      });
+
+      $("grants").textContent = "";
+      b.access_provided.forEach(function (grant) {
+        addGrantRow({ system: grant.system, scope: grant.scope });
+      });
+      setFormError("");
+    }
+
+    function setFormError(message) {
+      var host = $("form-error");
+      host.textContent = message || "";
+      if (message) host.setAttribute("data-tone", "error");
+      else host.removeAttribute("data-tone");
+    }
+
+    function showView(name) {
+      $("view-review").hidden = name !== "review";
+      $("view-new").hidden = name !== "new";
+      window.scrollTo(0, 0);
+    }
+
+    function submitNewHandover(event) {
+      event.preventDefault();
+      setFormError("");
+
+      if (!window.Handover) {
+        setFormError(
+          "The in-page core did not load, so a brief cannot be generated here."
+        );
+        return;
+      }
+
+      try {
+        var built = window.Handover.build(window.Handover.skill, collectResponse());
+        state = {
+          brief: built.brief,
+          vault: built.vault,
+          intake_findings: built.findings,
+          sources: { skill: window.Handover.skill.skill, response: "(entered here)" },
+        };
+        // This engagement was built here, so the server knows nothing about
+        // it and cannot record a decision on it. Say so rather than letting
+        // someone approve it believing it was written to engagements/.
+        if (connected) {
+          connected = false;
+          $("preview-banner").hidden = false;
+          $("mode-note").textContent =
+            "This engagement was built in your browser, so it is decided here " +
+            "and not written to engagements/. Reload the page to go back to " +
+            "the one the gate server was pointed at.";
+        }
+        $("approver-name").value = "";
+        $("approver-notes").value = "";
+        setResult("", null);
+        render();
+        showView("review");
+      } catch (error) {
+        // Schema violations arrive here — minLength on the objective, a time
+        // outside 30–480, and so on. The message names the field.
+        setFormError(error.message);
+      }
+    }
+
     // ---- Boot -----------------------------------------------------------
     function bindEvents() {
       $("approver-name").addEventListener("input", function () {
@@ -1782,7 +2236,24 @@
       $("btn-reject").addEventListener("click", function () {
         decide("rejected");
       });
-      $("btn-new").addEventListener("click", reset);
+      $("btn-new").addEventListener("click", function () {
+        // With the core in the page a visitor can build their own engagement.
+        // Without it there is only the sample, so the button reloads that.
+        if (window.Handover) {
+          if (!$("materials").querySelector(".row")) fillExample();
+          showView("new");
+        } else {
+          reset();
+        }
+      });
+      $("new-form").addEventListener("submit", submitNewHandover);
+      $("add-material").addEventListener("click", function () { addMaterialRow(); });
+      $("add-grant").addEventListener("click", function () { addGrantRow(); });
+      $("btn-fill-example").addEventListener("click", fillExample);
+      $("btn-cancel-new").addEventListener("click", function () {
+        setFormError("");
+        showView("review");
+      });
     }
 
     async function boot() {
@@ -1797,17 +2268,21 @@
           "Connected to the approval gate. Decisions are enforced by " +
           "src/approval/ApprovalGate.ts and written to engagements/.";
       } catch (error) {
-        // The label has to match what the button can actually do. With no
-        // server there is only the one sample, so promising "a new handover"
-        // would be a lie the second time someone clicked it.
-        $("btn-new").textContent = "Restart the sample";
-        $("howto-link").textContent = "Run this on your own engagement →";
+        // The label has to match what the button can actually do. With the
+        // core bundled in, it genuinely starts a new handover; without it
+        // there is only the sample to reload.
+        if (!window.Handover) {
+          $("btn-new").textContent = "Restart the sample";
+        }
+        $("howto-link").textContent = "Run this against a real gate →";
         state = JSON.parse(JSON.stringify(OFFLINE_STATE));
         connected = false;
         $("preview-banner").hidden = false;
-        $("mode-note").textContent =
-          "Static preview of the review UI. Run `npm run gate` in the repo to " +
-          "use it against a real engagement.";
+        $("mode-note").textContent = window.Handover
+          ? "Running the core in this tab — no server, no requests, nothing " +
+            "stored. Run `npm run gate` in the repo to decide against a real " +
+            "gate that keeps the record."
+          : "Static preview of the review UI.";
       }
       bindEvents();
       render();

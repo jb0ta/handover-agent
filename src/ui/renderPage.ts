@@ -18,6 +18,15 @@ export interface RenderPageOptions {
   title?: string;
   /** Extra tags for <head> — meta description, canonical link, and so on. */
   head?: string;
+  /**
+   * The browser bundle of the core, inlined ahead of the page's own script.
+   *
+   * Inlined rather than linked because the published demo must load zero
+   * external resources and the artifact host's CSP blocks external scripts.
+   * It defines `window.Handover` and touches no DOM, so running it early is
+   * safe — and it must run first, since the page script uses it.
+   */
+  script?: string;
 }
 
 export function renderPage(body: string, options: RenderPageOptions = {}): string {
@@ -26,6 +35,7 @@ export function renderPage(body: string, options: RenderPageOptions = {}): strin
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
     options.title ? `<title>${options.title}</title>` : "",
     options.head ?? "",
+    options.script ? `<script>${options.script}</script>` : "",
   ]
     .filter(Boolean)
     .join("\n");
