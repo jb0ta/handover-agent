@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import Intake from "./intake/Intake";
-import ApprovalGate, { ApprovalError } from "./approval/ApprovalGate";
+import { ApprovalError } from "./approval/ApprovalGate";
+import { createToolkit } from "./node";
 import { createEngagement } from "./engagement/createEngagement";
 import { parseArgs, usage, UsageError } from "./cli/options";
 
@@ -34,10 +34,7 @@ async function main(): Promise<void> {
   console.log("🚀 Handover Agent\n");
   console.log("=".repeat(60));
 
-  const intake = new Intake(
-    "./schemas/skill.schema.json",
-    "./schemas/brief.schema.json"
-  );
+  const { intake, gate } = createToolkit();
 
   console.log("\n📥 Running intake...\n");
 
@@ -80,7 +77,6 @@ async function main(): Promise<void> {
 
   // The invariant, demonstrated rather than asserted: the agent asking to
   // approve its own handover is refused.
-  const gate = new ApprovalGate();
   try {
     gate.decide(brief, vault, {
       decision: "approved",

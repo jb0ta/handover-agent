@@ -1,5 +1,6 @@
-import * as fs from "fs";
 import Ajv, { ErrorObject, ValidateFunction } from "ajv";
+
+export type JsonSchema = Record<string, unknown>;
 
 export interface ValidationResult {
   valid: boolean;
@@ -9,36 +10,49 @@ export interface ValidationResult {
 /**
  * Compiles JSON schemas once and reuses them.
  *
- * AJV registers a schema by its `$id` when compiled and throws
- * "schema with key or id ... already exists" if the same `$id` is compiled a
- * second time. Compiling per validation call therefore makes any holder of an
- * AJV instance single-use — fine for a one-shot demo, fatal for a server that
- * validates on every request. This caches by schema path and reads each file
- * from disk exactly once.
+ * Takes schema *objects*, not paths — nothing here touches a filesystem, so
+ * the same validation runs in Node, in a test with no fixtures on disk, and in
+ * a browser. Loading schemas is a separate concern (`src/schemas`).
+ *
+ * The cache is not an optimisation, it is a correctness requirement: AJV
+ * registers a schema by its `$id` when compiled and throws
+ * "schema with key or id ... already exists" on a second compile of the same
+ * `$id`. Compiling per call therefore makes any holder of an AJV instance
+ * single-use — fine for a one-shot script, fatal for a server that validates
+ * on every request.
  */
 export class SchemaValidator {
   private ajv: Ajv;
-  private validators: Map<string, ValidateFunction>;
+  /** Schemas that declare an `$id` — the identity AJV itself cares about. */
+  private byId: Map<string, ValidateFunction>;
+  /** Anonymous schemas, keyed by the object handed in. */
+  private byObject: WeakMap<JsonSchema, ValidateFunction>;
 
   constructor() {
     this.ajv = new Ajv({ allErrors: true });
-    this.validators = new Map();
+    this.byId = new Map();
+    this.byObject = new WeakMap();
   }
 
-  validatorFor(schemaPath: string): ValidateFunction {
-    const cached = this.validators.get(schemaPath);
+  validatorFor(schema: JsonSchema): ValidateFunction {
+    const id = typeof schema.$id === "string" ? schema.$id : undefined;
+
+    const cached = id ? this.byId.get(id) : this.byObject.get(schema);
     if (cached) {
       return cached;
     }
 
-    const schema = JSON.parse(fs.readFileSync(schemaPath, "utf-8"));
     const validate = this.ajv.compile(schema);
-    this.validators.set(schemaPath, validate);
+    if (id) {
+      this.byId.set(id, validate);
+    } else {
+      this.byObject.set(schema, validate);
+    }
     return validate;
   }
 
-  validate(schemaPath: string, data: unknown): ValidationResult {
-    const validate = this.validatorFor(schemaPath);
+  validate(schema: JsonSchema, data: unknown): ValidationResult {
+    const validate = this.validatorFor(schema);
     const valid = validate(data);
     return { valid, errors: validate.errors || [] };
   }

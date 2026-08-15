@@ -1,4 +1,4 @@
-import SchemaValidator from "../validation/SchemaValidator";
+import SchemaValidator, { JsonSchema } from "../validation/SchemaValidator";
 import {
   ApproverRole,
   AuditEntry,
@@ -119,18 +119,21 @@ export interface DecisionResult {
   audit_entry: AuditEntry;
 }
 
+/** The schemas the gate re-validates against. Objects, not paths. */
+export interface GateSchemas {
+  brief: JsonSchema;
+  vault: JsonSchema;
+}
+
 export class ApprovalGate {
   private validator: SchemaValidator;
-  private briefSchemaPath: string;
-  private vaultSchemaPath: string;
+  private schemas: GateSchemas;
 
   constructor(
-    briefSchemaPath = "./schemas/brief.schema.json",
-    vaultSchemaPath = "./schemas/vault-manifest.schema.json",
+    schemas: GateSchemas,
     validator: SchemaValidator = new SchemaValidator()
   ) {
-    this.briefSchemaPath = briefSchemaPath;
-    this.vaultSchemaPath = vaultSchemaPath;
+    this.schemas = schemas;
     this.validator = validator;
   }
 
@@ -265,7 +268,7 @@ export class ApprovalGate {
    * A decision that produces a schema-invalid brief or vault is not recorded.
    */
   private assertValid(brief: Brief, vault: VaultManifest): void {
-    const briefResult = this.validator.validate(this.briefSchemaPath, brief);
+    const briefResult = this.validator.validate(this.schemas.brief, brief);
     if (!briefResult.valid) {
       throw new ApprovalError(
         "schema_violation",
@@ -275,7 +278,7 @@ export class ApprovalGate {
       );
     }
 
-    const vaultResult = this.validator.validate(this.vaultSchemaPath, vault);
+    const vaultResult = this.validator.validate(this.schemas.vault, vault);
     if (!vaultResult.valid) {
       throw new ApprovalError(
         "schema_violation",

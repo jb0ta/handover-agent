@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Start a handover from the page.** The review screen now has a form: enter a client's objective, situation, materials and classifications, and get a schema-valid brief and a scoped vault back. It runs the *real* core — `src/browser/bundle.ts` bundles `Intake`, `VaultManifest` and `ApprovalGate` with the schemas inlined via esbuild, so the demo exercises the same modules the server does.
+- **The mirrored gate rules are gone.** The page used to carry a hand-written copy of the gate's refusals so the offline buttons did something. With the real gate in the page, that second implementation — the one that could drift from what it was demonstrating — was deleted.
+- A clearer entry point: a step strip showing where the screen sits in the process, and "Start a new handover" as a primary action rather than a ghost button inside the decision panel.
+
+### Changed
+- **The core no longer reaches for a filesystem.** `SchemaValidator` takes schema objects instead of paths; `Intake` and `ApprovalGate` take schema objects and, for intake, an injected document reader. `src/schemas` is the only place in the core that reads a file, and `src/node.ts` wires the real ones together. This is what made the browser bundle possible without a second implementation.
+- Building an engagement in the browser on the *served* page now says so — that engagement is decided in the tab and not written to `engagements/`, and the page states it rather than letting someone assume otherwise.
+
+### Fixed
+- `client_name` was collected and silently dropped: `ClientResponse` accepted it, both examples set it, and `brief.schema.json` allowed it, but `generateBrief()` never copied it across. Now carried and shown in the review UI.
+- The demo's "loads no external resources" test matched any URL-shaped string, so it failed once the schemas were inlined — their `$id` and `$schema` are identifiers that are never fetched. It now asserts load *mechanisms* (script/link/img tags, fetch, XHR, WebSocket, beacon, storage) instead.
+
+---
+
 ## [0.2.0] — 2026-08-15
 
 The approval gate stops being a diagram. It is now a module, an HTTP surface, and a review UI — and the invariant it protects is enforced at every one of those layers.

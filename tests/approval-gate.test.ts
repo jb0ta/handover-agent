@@ -1,14 +1,11 @@
-import * as fs from "fs";
 import * as path from "path";
 import Ajv from "ajv";
 import ApprovalGate, { ApprovalError, DecisionRequest } from "../src/approval/ApprovalGate";
-import Intake from "../src/intake/Intake";
+import { loadSchemas, createIntake, createApprovalGate } from "../src/node";
 import { buildVaultManifest } from "../src/vault/VaultManifest";
 import { Brief, VaultManifest } from "../src/types";
 
-const SKILL_SCHEMA = path.join(__dirname, "../schemas/skill.schema.json");
-const BRIEF_SCHEMA = path.join(__dirname, "../schemas/brief.schema.json");
-const VAULT_SCHEMA = path.join(__dirname, "../schemas/vault-manifest.schema.json");
+const SCHEMAS = loadSchemas(path.join(__dirname, "../schemas"));
 const EXAMPLE_SKILL = path.join(__dirname, "../skills/example-skill.json");
 
 const RESPONSE = {
@@ -34,11 +31,11 @@ const HUMAN: Pick<DecisionRequest, "approver_role" | "approver_name"> = {
 };
 
 function makeGate(): ApprovalGate {
-  return new ApprovalGate(BRIEF_SCHEMA, VAULT_SCHEMA);
+  return createApprovalGate(SCHEMAS);
 }
 
 async function makeEngagement(): Promise<{ brief: Brief; vault: VaultManifest }> {
-  const intake = new Intake(SKILL_SCHEMA, BRIEF_SCHEMA);
+  const intake = createIntake(SCHEMAS);
   const skill = await intake.loadSkill(EXAMPLE_SKILL);
   const brief = intake.generateBrief(skill, RESPONSE as never) as Brief;
   const vault = buildVaultManifest(brief);
@@ -211,14 +208,14 @@ describe("ApprovalGate — results stay schema-valid", () => {
   it("produces a brief and vault that both still validate", async () => {
     const { brief, vault } = await makeEngagement();
     const gate = makeGate();
-    const intake = new Intake(SKILL_SCHEMA, BRIEF_SCHEMA);
+    const intake = createIntake(SCHEMAS);
 
     const result = gate.decide(brief, vault, { ...HUMAN, decision: "approved" });
 
     expect(intake.validateBrief(result.brief).valid).toBe(true);
 
     const ajv = new Ajv({ allErrors: true });
-    const validate = ajv.compile(JSON.parse(fs.readFileSync(VAULT_SCHEMA, "utf-8")));
+    const validate = ajv.compile(SCHEMAS.vault);
     expect(validate(result.vault)).toBe(true);
   });
 });

@@ -1,13 +1,13 @@
 import Intake from "../src/intake/Intake";
+import { loadSchemas, createIntake } from "../src/node";
 import * as fs from "fs";
 import * as path from "path";
 
-const SKILL_SCHEMA = path.join(__dirname, "../schemas/skill.schema.json");
-const BRIEF_SCHEMA = path.join(__dirname, "../schemas/brief.schema.json");
+const SCHEMAS = loadSchemas(path.join(__dirname, "../schemas"));
 const EXAMPLE_SKILL = path.join(__dirname, "../skills/example-skill.json");
 
 function makeIntake(): Intake {
-  return new Intake(SKILL_SCHEMA, BRIEF_SCHEMA);
+  return createIntake(SCHEMAS);
 }
 
 const COMPLETE_RESPONSE = {
