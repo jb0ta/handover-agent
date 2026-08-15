@@ -32,3 +32,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Decided engagements written by the approval gate (real client material)
+engagements/

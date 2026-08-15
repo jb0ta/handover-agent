@@ -23,6 +23,15 @@ const COMPLETE_RESPONSE = {
       collected_at: new Date().toISOString(),
     },
   ],
+  // The example skill's what_i_need includes "Read-only access to the relevant
+  // platform" — an access grant, not a file. A response without it is not
+  // complete, so the fixture carries one.
+  access_provided: [
+    {
+      system: "n8n",
+      scope: "read-only access to the workflow and logs",
+    },
+  ],
   estimated_productive_time_minutes: 120,
 };
 

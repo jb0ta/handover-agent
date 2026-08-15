@@ -1,6 +1,6 @@
 # Handover Agent: Skill-Driven Micro-Engagement Workflow
 
-**v0.1.2** · Implementation of agentic freelancing micro-engagements.
+**v0.2.0** · Implementation of agentic freelancing micro-engagements.
 
 This is a **working vertical slice**, not production. See [What's Here](#whats-here) and [What's Coming](#whats-coming).
 
@@ -54,10 +54,13 @@ Billing: Productive Time Only
 - **Vault manifest schema** (`schemas/vault-manifest.schema.json`) — validates scoped handover + provenance + audit log
 - **Return-handover schema** (`schemas/return-handover.schema.json`) — validates what freelancer returns
 - **Intake logic** (`src/intake/Intake.ts`) — loads skill, asks questions, builds brief, validates against schemas
+- **Vault packaging** (`src/vault/VaultManifest.ts`) — turns collected materials into a scoped manifest with provenance, classification and expiry
+- **Approval gate** (`src/approval/ApprovalGate.ts`) — the human sign-off, enforced: an automated identity cannot approve, a brief is decided once, and every decision appends to the audit log
+- **Approval gate server + review UI** (`src/server/`, `src/ui/`) — run `npm run gate`, read the brief beside what would leave the client's control, and decide
 - **Example skill** (`skills/example-skill.yaml`) — demonstrates skill-as-code (workflow-automation-review)
 - **Example outputs** (`examples/`) — sample brief + vault manifest from the demo
 - **Demo runner** (`src/main.ts`) — end-to-end flow showing concept
-- **Test suite** (`tests/intake.test.ts`) — 13 tests, including a build-failing safety invariant (a new brief can never be auto-approved)
+- **Test suite** (`tests/`) — 59 tests, including build-failing safety invariants (a new brief can never be auto-approved; an agent can never approve one)
 - **Schema validator** (`scripts/validate-schemas.js`) — validates schemas + examples; run with `npm run validate:schemas`
 - **Docs** (`docs/architecture.md`, `docs/threat-model.md`) — trust boundaries and the security model
 - **Package setup** — Node 18+, TypeScript, AJV schema validation, ready to build/test/deploy
@@ -65,12 +68,12 @@ Billing: Productive Time Only
 ### ⚠️ Concept Only (Not Implemented)
 
 - Actual YAML parsing (skills are JSON for now; `example-skill.yaml` is provided for readability)
-- Vault filesystem/access control (manifest structure defined + validated; runtime enforcement not built)
-- Approval gate UI (the invariant is enforced in code; no interface yet)
+- Vault filesystem/access control (the manifest records who may read what; no runtime storage layer enforces it)
+- Authentication on the gate (it binds to loopback and trusts whoever reaches it — see [Security](#security--provenance-design))
 - Freelancer workspace + live return-handover collection (schema + example exist; no runtime)
 - Expiry/revocation enforcement (modelled in schema; not enforced at runtime)
-- Audit log persistence (structure enforced; no append-only store yet)
-- API/web interface
+- Audit log persistence (append-only by construction and written to disk as JSON; not a tamper-evident store)
+- Multi-engagement storage (the gate holds one engagement at a time)
 
 ### 🏗️ Architecture
 
@@ -87,13 +90,16 @@ Billing: Productive Time Only
 │   ├── example-vault-manifest.json  # Sample vault
 │   └── example-return-handover.json # Sample return handover
 ├── src/
-│   ├── intake/
-│   │   └── Intake.ts                # Core intake logic
-│   ├── brief/                       # (Planned: brief generation/validation)
-│   ├── vault/                       # (Planned: vault creation/access control)
-│   ├── approval/                    # (Planned: approval gate)
+│   ├── intake/Intake.ts             # Skill-driven intake → brief
+│   ├── vault/VaultManifest.ts       # Scoped vault packaging
+│   ├── approval/ApprovalGate.ts     # The human sign-off, enforced
+│   ├── server/server.ts             # Approval gate HTTP server
+│   ├── ui/index.html                # Review + decide screen
+│   ├── validation/SchemaValidator.ts# Compiled-schema cache
+│   ├── demo/demoEngagement.ts       # The worked example, shared
+│   ├── types.ts                     # TS mirrors of the schemas
 │   └── main.ts                      # Demo runner
-├── tests/                            # Test suite (intake + verification)
+├── tests/                            # 59 tests across 4 suites
 ├── docs/                             # architecture.md, threat-model.md
 ├── package.json
 ├── tsconfig.json
@@ -121,9 +127,48 @@ npm install
 
 # Run the demo (builds automatically via the prestart hook)
 npm start
+
+# Open the approval gate and decide in the browser
+npm run gate
 ```
 
-**Output:** generates `examples/example-brief.json` and `examples/example-vault-manifest.json`.
+`npm start` generates `examples/example-brief.json` and `examples/example-vault-manifest.json`.
+
+`npm run gate` serves the review UI on <http://127.0.0.1:4173>.
+
+---
+
+## The Approval Gate
+
+The gate is the point of the project: the agent collects and packages, a person decides.
+
+```bash
+npm run gate    # http://127.0.0.1:4173
+```
+
+The screen puts the brief beside the materials that would leave the client's
+control — each item with its classification, provenance, and who may read it —
+plus the access grants, the expiry, and the audit log so far. You enter your
+name, optionally a note, and approve or reject.
+
+What the gate enforces, at the module *and* over HTTP:
+
+| Rule | What happens |
+|---|---|
+| An automated identity cannot approve | `agent_intake`, `system`, `handover-bot` and friends are refused — as a role or as a name |
+| A brief is decided once | A second decision returns `409 already_decided`; approvals can't be quietly flipped |
+| Brief and vault must match | A brief decided against another engagement's vault is refused |
+| Decisions append, never rewrite | Prior audit entries are carried over byte-identical |
+| A rejection closes the door | `freelancer_access` is set to `none` and no approval is recorded |
+| Results stay schema-valid | A decision that would produce an invalid brief or vault is not recorded |
+
+Approving writes the decided brief and vault to
+`engagements/<engagement_id>/` (git-ignored).
+
+**Scope, stated plainly:** the gate is a local review tool. There is no
+authentication — whoever reaches the port can decide, which is why it binds to
+loopback. Do not expose it. Identity is assumed to be handled upstream
+(see [docs/threat-model.md](docs/threat-model.md)).
 
 ---
 
@@ -219,19 +264,21 @@ See [docs/threat-model.md](docs/threat-model.md) for the full model.
 
 ## What's Coming (Roadmap)
 
-### Phase 2 (1–2 weeks)
-- [ ] YAML skill parser (not just JSON)
-- [ ] CLI interface (load skill, run intake, output brief)
-- [ ] Approval gate UI (simple web form or Telegram bot)
-- [ ] Threat model & documented hardening
-- [ ] Test suite (intake validation, schema validation, edge cases)
+### Phase 2
+- [x] Approval gate UI (web review screen + HTTP API)
+- [x] Approval workflow (human sign-off before the vault opens)
+- [x] Threat model & documented hardening
+- [x] Test suite (intake validation, schema validation, gate invariants, edge cases)
+- [ ] YAML skill parser (not just JSON — the `yaml` dependency is already installed)
+- [ ] CLI interface (load an arbitrary skill + response file)
 
-### Phase 3 (2–4 weeks)
+### Phase 3
+- [ ] Authentication on the gate (it currently trusts whoever reaches the port)
 - [ ] Vault implementation (scoped filesystem + access control + expiry)
+- [ ] Multi-engagement storage (the gate holds one at a time)
 - [ ] Return-handover collection & validation
 - [ ] Freelancer workspace concept (clean briefing folder)
 - [ ] Audit log persistence (append-only, tamper-evident)
-- [ ] Approval workflow (human sign-off before vault unlock)
 
 ### Phase 4 (production)
 - [ ] API / web interface
@@ -269,6 +316,7 @@ Compiles `src/**/*.ts` → `dist/**/*.js`. Respects `tsconfig.json` (strict mode
 ```bash
 npm run dev       # TypeScript directly (ts-node)
 npm start         # Compiled JavaScript
+npm run gate      # Approval gate server + review UI
 ```
 
 ### Testing
@@ -306,18 +354,21 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 
 ## Status
 
-**v0.1.2 — MVP / Proof of Concept**
+**v0.2.0 — MVP / Proof of Concept**
 
 - ✅ Model defined (schemas)
 - ✅ Core intake logic working
 - ✅ Example skill + outputs + return handover
-- ✅ Test suite (18 passing, incl. safety invariant)
+- ✅ Approval gate enforced in code, over HTTP, and in a review UI
+- ✅ Test suite (59 passing, incl. safety invariants)
 - ✅ Architecture + threat-model docs
 - ⚠️ Not production-hardened
-- ❌ No approval UI yet (invariant enforced in code, but no interface)
+- ❌ No authentication on the gate (loopback only)
 - ❌ No vault runtime enforcement yet
+- ❌ No return-handover runtime yet
 
-**Expected next step:** a human reviews the generated brief, approves the vault, and sees the loop close with actual freelancer work.
+**Expected next step:** the freelancer half of the loop — a workspace that opens
+on approval, and a return handover collected against its schema.
 
 ---
 
@@ -325,6 +376,7 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 
 - Read the schemas (`schemas/`) — they're the source of truth.
 - Run the demo (`npm start`) — it shows the concept in action.
+- Run the gate (`npm run gate`) — it shows the decision that matters.
 - Check `examples/` — sample brief and vault manifest.
 - See `skills/example-skill.yaml` — a concrete skill definition.
 

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] — 2026-08-15
+
+The approval gate stops being a diagram. It is now a module, an HTTP surface, and a review UI — and the invariant it protects is enforced at every one of those layers.
+
+### Added
+- **`src/approval/ApprovalGate.ts`** — the human sign-off, enforced. Refuses an automated identity as approver, refuses a second decision on an already-decided brief, refuses a brief/vault pair from different engagements, appends to the audit log without touching prior entries, and re-validates both documents against their schemas before returning.
+- **`src/server/server.ts`** — a dependency-free HTTP server (`npm run gate`) exposing `GET /api/engagement`, `POST /api/decision`, `POST /api/reset`, and the review UI. Binds to loopback; decisions are written to `engagements/<engagement_id>/`.
+- **`src/ui/index.html`** — the review screen: the brief beside the materials that would leave the client's control, each item carrying its classification, provenance and access restrictions; the audit log; and the decision form. Works against the server, and falls back to a static preview when there is none.
+- **`src/vault/VaultManifest.ts`** — vault packaging extracted from the demo runner and made reusable.
+- **`src/validation/SchemaValidator.ts`** — one compiled-schema cache shared by intake and the gate.
+- **`src/types.ts`** — shared TypeScript mirrors of the schemas. `NewBrief` pins `approval_status` to the literal `"pending_approval"`, so auto-approval now fails to compile as well as failing its test.
+- **`tests/approval-gate.test.ts`** and **`tests/server.test.ts`** — 33 new tests covering the gate's invariants in isolation and over the wire.
+
+### Fixed
+- **Intake instances were single-use (P1).** AJV registers a schema by its `$id` on compile and throws if the same `$id` is compiled twice; `loadSkill()` and `validateBrief()` recompiled on every call, so the *second* call on any instance threw `schema with key or id ... already exists`. Every test constructing a fresh `Intake` had hidden it. Validators are now compiled once and cached — which is what makes a long-lived server possible at all.
+- **Missing-info detection ignored the need it was checking (P2).** The `what_i_need` loop tested `source_materials` on every iteration regardless of the need in hand, so one uploaded file satisfied *all* declared needs — including "read-only access to the relevant platform", which is not a file. Needs asking for system access are now checked against `access_provided`, and unmet needs are reported per need.
+- **The PII warning was dead code (P3).** The check was `skill.exclusions.includes("no_pii_unless_required")` — an exact string match against an array of prose sentences. The real flag lives at `skill.security_requirements.no_pii_unless_required`, so the warning never fired, while `docs/threat-model.md` T2 claimed it existed. It now reads the flag, scans `exclusions` by pattern, and checks the whole brief rather than only `current_situation`.
+- **Only the first schema error was ever reported.** AJV now runs with `allErrors: true`.
+- **The demo pre-approved its own vault.** `main.ts` wrote an `approvals[]` entry saying the client had approved, while the brief it accompanied was `pending_approval`. Packaging no longer records approvals; a vault leaves intake with `freelancer_access: "none"` and an empty `approvals[]`, and only the gate changes that.
+- **`npm run lint` never linted `src/main.ts` or `src/types.ts`.** The `src/**/*.ts` argument expands to `src/*/*.ts` in a shell without `globstar`, silently skipping every top-level file. Now `eslint src tests --ext .ts`, with tests linted too.
+
+### Changed
+- `npm start` / `npm run dev` now demonstrate the gate refusing agent self-approval instead of printing a hand-built manifest.
+- A rejection sets `freelancer_access: "none"` rather than only labelling the brief.
+- README test count corrected (it claimed 13 in one place and 18 in another; the suite is now 59).
+
+---
+
 ## [0.1.2] — 2026-06-24
 
 ### Fixed

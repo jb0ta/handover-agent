@@ -1,6 +1,6 @@
 {
   "name": "handover-agent",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "A client-side handover agent implementing skill-as-code, scoped vault handover, and micro-engagement workflow",
   "main": "dist/main.js",
   "scripts": {
@@ -8,10 +8,11 @@
     "prestart": "npm run build",
     "start": "node dist/main.js",
     "dev": "ts-node src/main.ts",
+    "gate": "ts-node src/server/server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.ts",
+    "lint": "eslint src tests --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "validate:schemas": "node scripts/validate-schemas.js"
   },
   "keywords": [
