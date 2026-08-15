@@ -263,6 +263,12 @@ export class Intake {
       engagement_id: engagementId,
       skill: skill.skill,
       created_at: new Date().toISOString(),
+      // Optional by schema, "optional for privacy" — but if the client gave a
+      // name, carry it. It was being collected and silently dropped, so the
+      // reviewer could not see whose engagement they were approving.
+      ...(response.client_name?.trim()
+        ? { client_name: response.client_name.trim() }
+        : {}),
       client_objective:
         (response.client_objective as string) || "Objective not specified",
       current_situation:

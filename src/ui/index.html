@@ -309,6 +309,34 @@
     color: var(--state-pending);
   }
 
+  /* Shown only when there is no gate server behind the page. */
+  .notice--preview {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    border-style: dashed;
+    border-color: var(--line-strong);
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
+  }
+
+  .notice--preview b {
+    font-family: var(--mono);
+    font-size: var(--micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .notice--preview a {
+    color: var(--accent);
+  }
+
+  .notice--preview[hidden] {
+    display: none;
+  }
+
   .notice ul {
     margin: 0;
     padding-left: 1.1rem;
@@ -781,10 +809,22 @@
       </p>
     </div>
     <div class="ids">
+      <span id="client-row" hidden><b>Client</b><br /><span id="client-name">—</span></span>
       <span><b>Engagement</b><br /><span id="engagement-id">—</span></span>
       <span><b>Brief</b><br /><span id="brief-id">—</span></span>
     </div>
   </header>
+
+  <div class="notice notice--preview" id="preview-banner" hidden>
+    <b>Preview</b>
+    <span>
+      No gate server behind this page. The buttons work and mirror the gate's
+      refusal rules so you can see what it does, but those rules are enforced by
+      <code>src/approval/ApprovalGate.ts</code> on the server — not by this
+      browser. Nothing here is written anywhere.
+    </span>
+    <a href="https://github.com/jb0ta/handover-agent">Source on GitHub</a>
+  </div>
 
   <section class="summary" aria-label="Engagement summary">
     <div class="tile">
@@ -990,6 +1030,7 @@
         engagement_id: "engagement-8c3d17ba-52e9-4c61-9f0a-77b2d4e5a913",
         skill: "workflow-automation-review",
         created_at: "2026-08-15T09:12:44.000Z",
+        client_name: "TechFlow Inc.",
         client_objective:
           "Make our main lead-capture workflow 30% faster and more reliable",
         current_situation:
@@ -1209,6 +1250,12 @@
       var brief = state.brief;
       var vault = state.vault;
 
+      if (brief.client_name) {
+        text("client-name", brief.client_name);
+        $("client-row").hidden = false;
+      } else {
+        $("client-row").hidden = true;
+      }
       text("engagement-id", brief.engagement_id);
       text("brief-id", brief.brief_id);
       text("brief-skill", brief.skill);
@@ -1633,10 +1680,10 @@
       } catch (error) {
         state = JSON.parse(JSON.stringify(OFFLINE_STATE));
         connected = false;
+        $("preview-banner").hidden = false;
         $("mode-note").textContent =
-          "Static preview — no gate server connected. The buttons work and " +
-          "the refusal rules are mirrored here, but the server is what " +
-          "enforces them for real. Run npm run gate to use it properly.";
+          "Static preview of the review UI. Run `npm run gate` in the repo to " +
+          "use it against a real engagement.";
       }
       bindEvents();
       render();

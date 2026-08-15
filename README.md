@@ -61,10 +61,11 @@ Billing: Productive Time Only
 - **Example skill** (`skills/example-skill.yaml`) — demonstrates skill-as-code (workflow-automation-review)
 - **Example outputs** (`examples/`) — sample brief + vault manifest from the demo
 - **Demo runner** (`src/main.ts`) — end-to-end flow showing concept
-- **Test suite** (`tests/`) — 81 tests, including build-failing safety invariants (a new brief can never be auto-approved; an agent can never approve one)
+- **Test suite** (`tests/`) — 91 tests, including build-failing safety invariants (a new brief can never be auto-approved; an agent can never approve one)
 - **Schema validator** (`scripts/validate-schemas.js`) — validates schemas + examples; run with `npm run validate:schemas`
 - **Docs** (`docs/architecture.md`, `docs/threat-model.md`) — trust boundaries and the security model
 - **CI** (`.github/workflows/ci.yml`) — lint, schemas, tests and build on Node 18 and 22, every push and PR
+- **Static demo** (`.github/workflows/pages.yml`) — the review UI published to GitHub Pages, no server behind it
 - **Package setup** — Node 18+, TypeScript, AJV schema validation, one runtime dependency
 
 ### ⚠️ Concept Only (Not Implemented)
@@ -100,11 +101,12 @@ Billing: Productive Time Only
 │   ├── approval/ApprovalGate.ts     # The human sign-off, enforced
 │   ├── server/server.ts             # Approval gate HTTP server
 │   ├── ui/index.html                # Review + decide screen
+│   ├── ui/renderPage.ts             # One HTML skeleton, three hosts
 │   ├── validation/SchemaValidator.ts# Compiled-schema cache
 │   ├── demo/demoEngagement.ts       # The worked example, shared
 │   ├── types.ts                     # TS mirrors of the schemas
 │   └── main.ts                      # Demo runner
-├── tests/                            # 81 tests across 5 suites
+├── tests/                            # 91 tests across 6 suites
 ├── docs/                             # architecture.md, threat-model.md
 ├── package.json
 ├── tsconfig.json
@@ -174,6 +176,16 @@ Approving writes the decided brief and vault to
 authentication — whoever reaches the port can decide, which is why it binds to
 loopback. Do not expose it. Identity is assumed to be handled upstream
 (see [docs/threat-model.md](docs/threat-model.md)).
+
+### The static demo
+
+`npm run demo:build` renders the same `src/ui/index.html` into a standalone
+page, deployed to GitHub Pages on every merge to `main`. It has no server: the
+page falls back to a fictional sample, mirrors the gate's refusal rules
+client-side so the buttons do something, and says so in a banner. The rules it
+demonstrates are enforced by `src/approval/ApprovalGate.ts`, not by the browser.
+
+**The gate itself is not deployed and must not be** — see the scope note above.
 
 ---
 
@@ -344,6 +356,7 @@ Compiles `src/**/*.ts` → `dist/**/*.js`. Respects `tsconfig.json` (strict mode
 npm run dev       # TypeScript directly (ts-node)
 npm start         # Compiled JavaScript
 npm run gate      # Approval gate server + review UI
+npm run demo:build # Render the static demo into dist-demo/
 ```
 
 ### Testing
@@ -391,7 +404,7 @@ CC-BY-4.0. Use, share, remix freely. Credit appreciated.
 - ✅ Core intake logic working
 - ✅ Example skill + outputs + return handover
 - ✅ Approval gate enforced in code, over HTTP, and in a review UI
-- ✅ Test suite (81 passing, incl. safety invariants)
+- ✅ Test suite (91 passing, incl. safety invariants)
 - ✅ Architecture + threat-model docs
 - ⚠️ Not production-hardened
 - ❌ No authentication on the gate (loopback only)

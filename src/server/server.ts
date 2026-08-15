@@ -5,6 +5,7 @@ import Intake from "../intake/Intake";
 import ApprovalGate, { ApprovalError } from "../approval/ApprovalGate";
 import { createEngagement } from "../engagement/createEngagement";
 import { parseArgs, usage, UsageError, DEFAULT_SKILL_PATH } from "../cli/options";
+import { renderPage, readUiBody, UI_BODY_PATH } from "../ui/renderPage";
 import { Brief, VaultManifest } from "../types";
 
 /**
@@ -24,9 +25,6 @@ import { Brief, VaultManifest } from "../types";
 const DEFAULT_PORT = 4173;
 const DEFAULT_HOST = "127.0.0.1";
 const MAX_BODY_BYTES = 64 * 1024;
-
-/** Resolves from both `src/server` (ts-node) and `dist/server` (compiled). */
-const UI_PATH = path.join(__dirname, "..", "..", "src", "ui", "index.html");
 
 export interface EngagementState {
   brief: Brief;
@@ -130,25 +128,13 @@ export class ApprovalServer {
   }
 
   private sendUi(res: http.ServerResponse): void {
-    if (!fs.existsSync(UI_PATH)) {
-      this.sendJson(res, 500, { error: `UI not found at ${UI_PATH}` });
+    let html: string;
+    try {
+      html = renderPage(readUiBody());
+    } catch {
+      this.sendJson(res, 500, { error: `Review UI not found at ${UI_BODY_PATH}` });
       return;
     }
-
-    // src/ui/index.html is page content, not a whole document — the same
-    // fragment is publishable as a hosted artifact, which supplies its own
-    // skeleton. Serving it means supplying one here.
-    const body = fs.readFileSync(UI_PATH, "utf-8");
-    const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-</head>
-<body>
-${body}
-</body>
-</html>`;
 
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",

@@ -13,7 +13,8 @@
     "test:watch": "jest --watch",
     "lint": "eslint src tests --ext .ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "validate:schemas": "node scripts/validate-schemas.js"
+    "validate:schemas": "node scripts/validate-schemas.js",
+    "demo:build": "ts-node scripts/build-demo.ts"
   },
   "keywords": [
     "agents",

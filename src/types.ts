@@ -29,6 +29,7 @@ export interface Brief {
   engagement_id: string;
   skill: string;
   created_at: string;
+  client_name?: string;
   client_objective: string;
   current_situation: string;
   desired_result: string;
